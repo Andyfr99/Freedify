@@ -1,6 +1,6 @@
 /* ==================== CSS Variables ==================== */
 :root {
-    /* Colors - Dark theme */
+    /* Colors - Dark theme (default) */
     --bg-primary: #0a0a0f;
     --bg-secondary: #12121a;
     --bg-tertiary: #1a1a25;
@@ -39,6 +39,42 @@
     
     /* Player height */
     --player-height: 180px;
+}
+
+/* ==================== Theme Variants ==================== */
+.theme-purple {
+    --accent: #a855f7;
+    --accent-light: #c084fc;
+    --accent-dark: #9333ea;
+    --accent-glow: rgba(168, 85, 247, 0.3);
+}
+
+.theme-blue {
+    --accent: #3b82f6;
+    --accent-light: #60a5fa;
+    --accent-dark: #2563eb;
+    --accent-glow: rgba(59, 130, 246, 0.3);
+}
+
+.theme-green {
+    --accent: #22c55e;
+    --accent-light: #4ade80;
+    --accent-dark: #16a34a;
+    --accent-glow: rgba(34, 197, 94, 0.3);
+}
+
+.theme-pink {
+    --accent: #ec4899;
+    --accent-light: #f472b6;
+    --accent-dark: #db2777;
+    --accent-glow: rgba(236, 72, 153, 0.3);
+}
+
+.theme-orange {
+    --accent: #f97316;
+    --accent-light: #fb923c;
+    --accent-dark: #ea580c;
+    --accent-glow: rgba(249, 115, 22, 0.3);
 }
 
 /* ==================== Reset & Base ==================== */
@@ -1810,4 +1846,250 @@ body {
 
 .favorites-btn.active {
     background: linear-gradient(135deg, #f43f5e 0%, #ec4899 100%) !important;
+}
+
+/* ==================== Equalizer Panel ==================== */
+.eq-btn.active {
+    color: var(--accent);
+}
+
+.eq-panel {
+    position: fixed;
+    bottom: 200px;
+    right: 20px;
+    width: 340px;
+    background: var(--bg-elevated);
+    border-radius: var(--radius-lg);
+    padding: 20px;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+    z-index: 1500;
+    animation: slideUp 0.3s ease;
+}
+
+@keyframes slideUp {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.eq-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+}
+
+.eq-header h3 {
+    margin: 0;
+    font-size: 1.1rem;
+}
+
+.eq-close-btn {
+    background: none;
+    border: none;
+    color: var(--text-secondary);
+    font-size: 1.5rem;
+    cursor: pointer;
+    padding: 0;
+    line-height: 1;
+}
+
+.eq-close-btn:hover {
+    color: var(--text-primary);
+}
+
+.eq-presets {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+}
+
+.eq-preset {
+    background: var(--bg-tertiary);
+    border: none;
+    padding: 8px 14px;
+    border-radius: var(--radius-full);
+    color: var(--text-secondary);
+    font-size: 0.85rem;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.eq-preset:hover {
+    background: var(--bg-secondary);
+    color: var(--text-primary);
+}
+
+.eq-preset.active {
+    background: var(--accent);
+    color: white;
+}
+
+.eq-sliders {
+    display: flex;
+    justify-content: space-between;
+    gap: 8px;
+    height: 120px;
+    margin-bottom: 20px;
+}
+
+.eq-band {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    flex: 1;
+}
+
+.eq-slider {
+    writing-mode: vertical-lr;
+    direction: rtl;
+    width: 24px;
+    height: 100px;
+    -webkit-appearance: slider-vertical;
+    appearance: slider-vertical;
+    background: var(--bg-tertiary);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+}
+
+.eq-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 16px;
+    height: 16px;
+    background: var(--accent);
+    border-radius: 50%;
+    cursor: pointer;
+}
+
+.eq-label {
+    font-size: 0.7rem;
+    color: var(--text-tertiary);
+    margin-top: 8px;
+}
+
+.eq-extras {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    border-top: 1px solid var(--bg-tertiary);
+    padding-top: 15px;
+}
+
+.eq-extra {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.eq-extra label {
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+    width: 90px;
+}
+
+.eq-boost-slider {
+    flex: 1;
+    -webkit-appearance: none;
+    height: 6px;
+    background: var(--bg-tertiary);
+    border-radius: 3px;
+    cursor: pointer;
+}
+
+.eq-boost-slider::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 14px;
+    height: 14px;
+    background: var(--accent);
+    border-radius: 50%;
+    cursor: pointer;
+}
+
+.eq-extra span {
+    font-size: 0.8rem;
+    color: var(--text-tertiary);
+    width: 40px;
+    text-align: right;
+}
+
+@media (max-width: 400px) {
+    .eq-panel {
+        left: 10px;
+        right: 10px;
+        width: auto;
+    }
+}
+
+/* ==================== Theme Picker ==================== */
+.theme-btn {
+    background: none;
+    border: none;
+    font-size: 1.3rem;
+    cursor: pointer;
+    padding: 8px;
+    border-radius: var(--radius-full);
+    transition: background 0.2s;
+}
+
+.theme-btn:hover {
+    background: var(--bg-tertiary);
+}
+
+.header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.theme-picker {
+    position: absolute;
+    top: 60px;
+    right: 20px;
+    background: var(--bg-elevated);
+    border-radius: var(--radius-md);
+    padding: 8px;
+    box-shadow: 0 8px 30px rgba(0, 0, 0, 0.4);
+    z-index: 1600;
+    min-width: 140px;
+}
+
+.theme-option {
+    padding: 10px 16px;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: background 0.2s;
+}
+
+.theme-option:hover {
+    background: var(--bg-tertiary);
+}
+
+.theme-option.active {
+    background: var(--accent);
+    color: white;
+}
+
+/* ==================== Header Actions & Sync ==================== */
+.header-actions {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+
+.header-btn {
+    background: none;
+    border: none;
+    font-size: 1.3rem;
+    cursor: pointer;
+    padding: 8px;
+    border-radius: var(--radius-full);
+    transition: background 0.2s;
+}
+
+.header-btn:hover {
+    background: var(--bg-tertiary);
+}
+
+.header-btn.synced {
+    color: var(--success);
 }

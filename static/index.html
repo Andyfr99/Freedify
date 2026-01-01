@@ -14,6 +14,9 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/static/styles.css">
+    <!-- Google API for Drive sync -->
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
+    <script src="https://apis.google.com/js/api.js" async defer></script>
 </head>
 <body>
     <!-- Toast Container -->
@@ -48,7 +51,21 @@
         <!-- Header -->
         <header class="header">
             <h1 class="logo">🎵 Freedify</h1>
+            <div class="header-actions">
+                <button id="sync-btn" class="header-btn" title="Sync with Google Drive">☁️</button>
+                <button id="theme-btn" class="theme-btn" title="Change Theme">🎨</button>
+            </div>
         </header>
+        
+        <!-- Theme Picker Dropdown -->
+        <div id="theme-picker" class="theme-picker hidden">
+            <div class="theme-option" data-theme="">🌙 Default</div>
+            <div class="theme-option" data-theme="theme-purple">💜 Purple</div>
+            <div class="theme-option" data-theme="theme-blue">💙 Blue</div>
+            <div class="theme-option" data-theme="theme-green">💚 Green</div>
+            <div class="theme-option" data-theme="theme-pink">💕 Pink</div>
+            <div class="theme-option" data-theme="theme-orange">🧡 Orange</div>
+        </div>
 
         <!-- Search Section -->
         <section class="search-section">
@@ -187,6 +204,58 @@
             <div class="volume-controls">
                 <button id="mute-btn" class="control-btn volume-btn" title="Mute">🔊</button>
                 <input type="range" id="volume-slider" class="volume-slider" min="0" max="100" value="100" title="Volume">
+                <button id="eq-toggle-btn" class="control-btn eq-btn" title="Equalizer">🎛️</button>
+            </div>
+        </div>
+
+        <!-- Equalizer Panel -->
+        <div id="eq-panel" class="eq-panel hidden">
+            <div class="eq-header">
+                <h3>🎛️ Equalizer</h3>
+                <button id="eq-close-btn" class="eq-close-btn">×</button>
+            </div>
+            
+            <div class="eq-presets">
+                <button class="eq-preset active" data-preset="flat">Flat</button>
+                <button class="eq-preset" data-preset="bass">Bass Boost</button>
+                <button class="eq-preset" data-preset="treble">Treble</button>
+                <button class="eq-preset" data-preset="vocal">Vocal</button>
+            </div>
+            
+            <div class="eq-sliders">
+                <div class="eq-band">
+                    <input type="range" id="eq-60" class="eq-slider" min="-12" max="12" value="0" orient="vertical">
+                    <span class="eq-label">60Hz</span>
+                </div>
+                <div class="eq-band">
+                    <input type="range" id="eq-230" class="eq-slider" min="-12" max="12" value="0" orient="vertical">
+                    <span class="eq-label">230Hz</span>
+                </div>
+                <div class="eq-band">
+                    <input type="range" id="eq-910" class="eq-slider" min="-12" max="12" value="0" orient="vertical">
+                    <span class="eq-label">910Hz</span>
+                </div>
+                <div class="eq-band">
+                    <input type="range" id="eq-3600" class="eq-slider" min="-12" max="12" value="0" orient="vertical">
+                    <span class="eq-label">3.6kHz</span>
+                </div>
+                <div class="eq-band">
+                    <input type="range" id="eq-14000" class="eq-slider" min="-12" max="12" value="0" orient="vertical">
+                    <span class="eq-label">14kHz</span>
+                </div>
+            </div>
+            
+            <div class="eq-extras">
+                <div class="eq-extra">
+                    <label for="bass-boost">Bass Boost</label>
+                    <input type="range" id="bass-boost" class="eq-boost-slider" min="0" max="12" value="0">
+                    <span id="bass-boost-val">0dB</span>
+                </div>
+                <div class="eq-extra">
+                    <label for="volume-boost">Volume Boost</label>
+                    <input type="range" id="volume-boost" class="eq-boost-slider" min="0" max="6" value="0">
+                    <span id="volume-boost-val">0dB</span>
+                </div>
             </div>
         </div>
 

@@ -54,10 +54,26 @@ Stream music from anywhere. Search songs, albums, artists, or paste URLs from Sp
 - **Persistent Storage** - Playlists stored in browser localStorage (survives restarts)
 - **Delete Playlists** - Hover over playlist and click 🗑️ to remove
 
+### 🎛️ Equalizer
+- **5-Band EQ** - Adjust 60Hz, 230Hz, 910Hz, 3.6kHz, 14kHz
+- **Bass Boost** - Extra low-end punch
+- **Volume Boost** - Up to +6dB gain
+- **Presets** - Flat, Bass Boost, Treble, Vocal
+
+### 🎨 Custom Themes
+- **6 Color Themes** - Default, Purple, Blue, Green, Pink, Orange
+- **Persistent** - Theme saved to localStorage
+
+### ☁️ Google Drive Sync
+- **Cross-Device** - Sync playlists across devices
+- **Upload/Download** - Manual sync control
+- **Privacy** - Uses Drive appDataFolder (hidden from Drive UI)
+
 ### 📱 Mobile Ready
 - **PWA Support** - Install on your phone's home screen
 - **Responsive Design** - Works on any screen size
 - **320kbps MP3** - High quality streaming
+- **Lock Screen Controls** - Play/pause/skip from lock screen
 
 ## 🚀 Quick Start
 

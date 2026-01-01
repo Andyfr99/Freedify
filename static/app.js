@@ -1542,3 +1542,515 @@ updateQueueUI = function() {
     _originalUpdateQueueUI.apply(this, arguments);
     setTimeout(initQueueDragDrop, 0);
 };
+
+// ========== EQUALIZER (Web Audio API) ==========
+const eqPanel = $('#eq-panel');
+const eqToggleBtn = $('#eq-toggle-btn');
+const eqCloseBtn = $('#eq-close-btn');
+const eqPresets = $$('.eq-preset');
+const bassBoostSlider = $('#bass-boost');
+const bassBoostVal = $('#bass-boost-val');
+const volumeBoostSlider = $('#volume-boost');
+const volumeBoostVal = $('#volume-boost-val');
+
+// Audio context and nodes (created lazily)
+let audioContext = null;
+let sourceNode = null;
+let eqFilters = [];
+let bassBoostFilter = null;
+let volumeBoostGain = null;
+let eqConnected = false;
+
+// EQ frequency bands
+const EQ_BANDS = [
+    { id: 'eq-60', freq: 60, type: 'lowshelf' },
+    { id: 'eq-230', freq: 230, type: 'peaking' },
+    { id: 'eq-910', freq: 910, type: 'peaking' },
+    { id: 'eq-3600', freq: 3600, type: 'peaking' },
+    { id: 'eq-14000', freq: 14000, type: 'highshelf' }
+];
+
+// Presets (dB values for each band)
+const EQ_PRESETS = {
+    flat: [0, 0, 0, 0, 0],
+    bass: [6, 4, 0, 0, 0],
+    treble: [0, 0, 0, 3, 6],
+    vocal: [-2, 0, 4, 2, -1]
+};
+
+function initEqualizer() {
+    if (audioContext) return; // Already initialized
+    
+    try {
+        audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        sourceNode = audioContext.createMediaElementSource(audioPlayer);
+        
+        // Create EQ filter nodes
+        eqFilters = EQ_BANDS.map(band => {
+            const filter = audioContext.createBiquadFilter();
+            filter.type = band.type;
+            filter.frequency.value = band.freq;
+            filter.gain.value = 0;
+            if (band.type === 'peaking') filter.Q.value = 1;
+            return filter;
+        });
+        
+        // Create bass boost filter (low shelf)
+        bassBoostFilter = audioContext.createBiquadFilter();
+        bassBoostFilter.type = 'lowshelf';
+        bassBoostFilter.frequency.value = 100;
+        bassBoostFilter.gain.value = 0;
+        
+        // Create volume boost gain node
+        volumeBoostGain = audioContext.createGain();
+        volumeBoostGain.gain.value = 1;
+        
+        // Connect chain: source -> EQ filters -> bass boost -> volume boost -> destination
+        let lastNode = sourceNode;
+        eqFilters.forEach(filter => {
+            lastNode.connect(filter);
+            lastNode = filter;
+        });
+        lastNode.connect(bassBoostFilter);
+        bassBoostFilter.connect(volumeBoostGain);
+        volumeBoostGain.connect(audioContext.destination);
+        
+        eqConnected = true;
+        
+        // Load saved settings
+        loadEqSettings();
+        
+        console.log('Equalizer initialized');
+    } catch (e) {
+        console.error('Failed to initialize equalizer:', e);
+    }
+}
+
+function loadEqSettings() {
+    const saved = localStorage.getItem('freedify_eq');
+    if (saved) {
+        try {
+            const settings = JSON.parse(saved);
+            EQ_BANDS.forEach((band, i) => {
+                const slider = $(`#${band.id}`);
+                if (slider && settings.bands[i] !== undefined) {
+                    slider.value = settings.bands[i];
+                    if (eqFilters[i]) eqFilters[i].gain.value = settings.bands[i];
+                }
+            });
+            if (settings.bass !== undefined) {
+                bassBoostSlider.value = settings.bass;
+                if (bassBoostFilter) bassBoostFilter.gain.value = settings.bass;
+                bassBoostVal.textContent = `${settings.bass}dB`;
+            }
+            if (settings.volume !== undefined) {
+                volumeBoostSlider.value = settings.volume;
+                if (volumeBoostGain) volumeBoostGain.gain.value = Math.pow(10, settings.volume / 20);
+                volumeBoostVal.textContent = `${settings.volume}dB`;
+            }
+        } catch (e) { console.error('Error loading EQ settings:', e); }
+    }
+}
+
+function saveEqSettings() {
+    const settings = {
+        bands: EQ_BANDS.map(band => parseFloat($(`#${band.id}`).value)),
+        bass: parseFloat(bassBoostSlider.value),
+        volume: parseFloat(volumeBoostSlider.value)
+    };
+    localStorage.setItem('freedify_eq', JSON.stringify(settings));
+}
+
+function applyPreset(preset) {
+    const values = EQ_PRESETS[preset];
+    if (!values) return;
+    
+    EQ_BANDS.forEach((band, i) => {
+        const slider = $(`#${band.id}`);
+        slider.value = values[i];
+        if (eqFilters[i]) eqFilters[i].gain.value = values[i];
+    });
+    
+    eqPresets.forEach(btn => btn.classList.remove('active'));
+    document.querySelector(`[data-preset="${preset}"]`)?.classList.add('active');
+    
+    saveEqSettings();
+}
+
+// Toggle EQ panel
+eqToggleBtn?.addEventListener('click', () => {
+    if (!audioContext) initEqualizer();
+    eqPanel.classList.toggle('hidden');
+    eqToggleBtn.classList.toggle('active');
+});
+
+eqCloseBtn?.addEventListener('click', () => {
+    eqPanel.classList.add('hidden');
+    eqToggleBtn.classList.remove('active');
+});
+
+// Preset buttons
+eqPresets.forEach(btn => {
+    btn.addEventListener('click', () => applyPreset(btn.dataset.preset));
+});
+
+// EQ band sliders
+EQ_BANDS.forEach((band, i) => {
+    const slider = $(`#${band.id}`);
+    slider?.addEventListener('input', () => {
+        if (eqFilters[i]) eqFilters[i].gain.value = parseFloat(slider.value);
+        saveEqSettings();
+        // Clear preset selection when manually adjusting
+        eqPresets.forEach(btn => btn.classList.remove('active'));
+    });
+});
+
+// Bass boost slider
+bassBoostSlider?.addEventListener('input', () => {
+    const val = parseFloat(bassBoostSlider.value);
+    if (bassBoostFilter) bassBoostFilter.gain.value = val;
+    bassBoostVal.textContent = `${val}dB`;
+    saveEqSettings();
+});
+
+// Volume boost slider
+volumeBoostSlider?.addEventListener('input', () => {
+    const val = parseFloat(volumeBoostSlider.value);
+    // Convert dB to gain multiplier: gain = 10^(dB/20)
+    if (volumeBoostGain) volumeBoostGain.gain.value = Math.pow(10, val / 20);
+    volumeBoostVal.textContent = `${val}dB`;
+    saveEqSettings();
+});
+
+// Initialize EQ when audio starts playing (to resume AudioContext)
+audioPlayer.addEventListener('play', () => {
+    if (!audioContext) {
+        initEqualizer();
+    } else if (audioContext.state === 'suspended') {
+        audioContext.resume();
+    }
+});
+
+// ========== THEME PICKER ==========
+const themeBtn = $('#theme-btn');
+const themePicker = $('#theme-picker');
+const themeOptions = $$('.theme-option');
+
+// Load saved theme on startup
+(function loadSavedTheme() {
+    const savedTheme = localStorage.getItem('freedify_theme') || '';
+    if (savedTheme) {
+        document.body.classList.add(savedTheme);
+    }
+    // Mark active option
+    themeOptions.forEach(opt => {
+        if (opt.dataset.theme === savedTheme) {
+            opt.classList.add('active');
+        }
+    });
+})();
+
+// Toggle theme picker
+themeBtn?.addEventListener('click', (e) => {
+    e.stopPropagation();
+    themePicker.classList.toggle('hidden');
+});
+
+// Theme selection
+themeOptions.forEach(opt => {
+    opt.addEventListener('click', () => {
+        const newTheme = opt.dataset.theme;
+        
+        // Remove all theme classes
+        document.body.classList.remove('theme-purple', 'theme-blue', 'theme-green', 'theme-pink', 'theme-orange');
+        
+        // Add new theme
+        if (newTheme) {
+            document.body.classList.add(newTheme);
+        }
+        
+        // Save to localStorage
+        localStorage.setItem('freedify_theme', newTheme);
+        
+        // Update active state
+        themeOptions.forEach(o => o.classList.remove('active'));
+        opt.classList.add('active');
+        
+        // Close picker
+        themePicker.classList.add('hidden');
+        
+        showToast(`Theme changed to ${opt.textContent}`);
+    });
+});
+
+// Close theme picker when clicking outside
+document.addEventListener('click', (e) => {
+    if (!themePicker.contains(e.target) && e.target !== themeBtn) {
+        themePicker.classList.add('hidden');
+    }
+});
+
+// ========== MEDIA SESSION API (Lock Screen Controls) ==========
+function updateMediaSession(track) {
+    if (!('mediaSession' in navigator)) return;
+    
+    navigator.mediaSession.metadata = new MediaMetadata({
+        title: track.name || 'Unknown Track',
+        artist: track.artists || 'Unknown Artist',
+        album: track.album || '',
+        artwork: [
+            { src: track.album_art || '/static/icon.svg', sizes: '512x512', type: 'image/png' }
+        ]
+    });
+}
+
+// Set up Media Session action handlers
+if ('mediaSession' in navigator) {
+    navigator.mediaSession.setActionHandler('play', () => {
+        audioPlayer.play();
+    });
+    
+    navigator.mediaSession.setActionHandler('pause', () => {
+        audioPlayer.pause();
+    });
+    
+    navigator.mediaSession.setActionHandler('previoustrack', () => {
+        playPrevious();
+    });
+    
+    navigator.mediaSession.setActionHandler('nexttrack', () => {
+        playNext();
+    });
+    
+    navigator.mediaSession.setActionHandler('seekbackward', (details) => {
+        audioPlayer.currentTime = Math.max(audioPlayer.currentTime - (details.seekOffset || 10), 0);
+    });
+    
+    navigator.mediaSession.setActionHandler('seekforward', (details) => {
+        audioPlayer.currentTime = Math.min(audioPlayer.currentTime + (details.seekOffset || 10), audioPlayer.duration);
+    });
+    
+    navigator.mediaSession.setActionHandler('seekto', (details) => {
+        if (details.fastSeek && 'fastSeek' in audioPlayer) {
+            audioPlayer.fastSeek(details.seekTime);
+        } else {
+            audioPlayer.currentTime = details.seekTime;
+        }
+    });
+}
+
+// Update position state periodically
+audioPlayer.addEventListener('timeupdate', () => {
+    if ('mediaSession' in navigator && 'setPositionState' in navigator.mediaSession) {
+        try {
+            if (audioPlayer.duration && !isNaN(audioPlayer.duration)) {
+                navigator.mediaSession.setPositionState({
+                    duration: audioPlayer.duration,
+                    playbackRate: audioPlayer.playbackRate,
+                    position: audioPlayer.currentTime
+                });
+            }
+        } catch (e) { /* Ignore errors */ }
+    }
+});
+
+// ========== GOOGLE DRIVE SYNC ==========
+// NOTE: You need to set your Google OAuth Client ID here
+const GOOGLE_CLIENT_ID = localStorage.getItem('freedify_google_client_id') || '';
+const GOOGLE_SCOPES = 'https://www.googleapis.com/auth/drive.appdata';
+const SYNC_FILENAME = 'freedify_playlists.json';
+
+let googleAccessToken = null;
+const syncBtn = $('#sync-btn');
+
+// Initialize Google API
+function initGoogleApi() {
+    return new Promise((resolve) => {
+        if (typeof gapi === 'undefined') {
+            console.log('Google API not loaded yet');
+            resolve(false);
+            return;
+        }
+        gapi.load('client', async () => {
+            try {
+                await gapi.client.init({
+                    discoveryDocs: ['https://www.googleapis.com/discovery/v1/apis/drive/v3/rest']
+                });
+                resolve(true);
+            } catch (e) {
+                console.error('Failed to init Google API:', e);
+                resolve(false);
+            }
+        });
+    });
+}
+
+// Google Sign-In
+async function signInWithGoogle() {
+    if (!GOOGLE_CLIENT_ID) {
+        const clientId = prompt(
+            'Enter your Google OAuth Client ID:\n\n' +
+            'To get one:\n' +
+            '1. Go to console.cloud.google.com\n' +
+            '2. Create a project\n' +
+            '3. Enable Drive API\n' +
+            '4. Create OAuth credentials (Web application)\n' +
+            '5. Add your domain to authorized origins'
+        );
+        if (clientId) {
+            localStorage.setItem('freedify_google_client_id', clientId);
+            location.reload();
+        }
+        return null;
+    }
+    
+    return new Promise((resolve) => {
+        const client = google.accounts.oauth2.initTokenClient({
+            client_id: GOOGLE_CLIENT_ID,
+            scope: GOOGLE_SCOPES,
+            callback: (response) => {
+                if (response.access_token) {
+                    googleAccessToken = response.access_token;
+                    gapi.client.setToken({ access_token: googleAccessToken });
+                    syncBtn.classList.add('synced');
+                    showToast('Signed in to Google Drive');
+                    resolve(response.access_token);
+                } else {
+                    resolve(null);
+                }
+            },
+            error_callback: (error) => {
+                console.error('Google sign-in error:', error);
+                showToast('Sign-in failed');
+                resolve(null);
+            }
+        });
+        client.requestAccessToken();
+    });
+}
+
+// Find sync file in Drive
+async function findSyncFile() {
+    try {
+        const response = await gapi.client.drive.files.list({
+            spaces: 'appDataFolder',
+            q: `name='${SYNC_FILENAME}'`,
+            fields: 'files(id, name, modifiedTime)'
+        });
+        return response.result.files?.[0] || null;
+    } catch (e) {
+        console.error('Error finding sync file:', e);
+        return null;
+    }
+}
+
+// Upload playlists to Drive
+async function uploadToDrive() {
+    if (!googleAccessToken) {
+        await signInWithGoogle();
+        if (!googleAccessToken) return;
+    }
+    
+    showLoading('Syncing to Google Drive...');
+    
+    try {
+        const playlistData = JSON.stringify(state.playlists, null, 2);
+        const existingFile = await findSyncFile();
+        
+        const metadata = {
+            name: SYNC_FILENAME,
+            mimeType: 'application/json'
+        };
+        
+        if (!existingFile) {
+            metadata.parents = ['appDataFolder'];
+        }
+        
+        const form = new FormData();
+        form.append('metadata', new Blob([JSON.stringify(metadata)], { type: 'application/json' }));
+        form.append('file', new Blob([playlistData], { type: 'application/json' }));
+        
+        const url = existingFile 
+            ? `https://www.googleapis.com/upload/drive/v3/files/${existingFile.id}?uploadType=multipart`
+            : 'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart';
+        
+        const response = await fetch(url, {
+            method: existingFile ? 'PATCH' : 'POST',
+            headers: { 'Authorization': `Bearer ${googleAccessToken}` },
+            body: form
+        });
+        
+        if (response.ok) {
+            hideLoading();
+            showToast(`Synced ${state.playlists.length} playlist(s) to Google Drive`);
+            localStorage.setItem('freedify_last_sync', new Date().toISOString());
+        } else {
+            throw new Error('Upload failed');
+        }
+    } catch (e) {
+        console.error('Upload error:', e);
+        hideLoading();
+        showError('Failed to sync to Google Drive');
+    }
+}
+
+// Download playlists from Drive
+async function downloadFromDrive() {
+    if (!googleAccessToken) {
+        await signInWithGoogle();
+        if (!googleAccessToken) return;
+    }
+    
+    showLoading('Loading from Google Drive...');
+    
+    try {
+        const file = await findSyncFile();
+        
+        if (!file) {
+            hideLoading();
+            showToast('No saved playlists found in Drive');
+            return;
+        }
+        
+        const response = await fetch(
+            `https://www.googleapis.com/drive/v3/files/${file.id}?alt=media`,
+            { headers: { 'Authorization': `Bearer ${googleAccessToken}` } }
+        );
+        
+        if (response.ok) {
+            const playlists = await response.json();
+            state.playlists = playlists;
+            savePlaylists();
+            hideLoading();
+            showToast(`Loaded ${playlists.length} playlist(s) from Google Drive`);
+            
+            // Refresh view if on favorites tab
+            if (state.searchType === 'favorites') {
+                renderPlaylistsView();
+            }
+        } else {
+            throw new Error('Download failed');
+        }
+    } catch (e) {
+        console.error('Download error:', e);
+        hideLoading();
+        showError('Failed to load from Google Drive');
+    }
+}
+
+// Sync button click handler
+syncBtn?.addEventListener('click', async () => {
+    await initGoogleApi();
+    
+    const action = confirm(
+        'Google Drive Sync\n\n' +
+        'OK = Upload playlists to Drive\n' +
+        'Cancel = Download playlists from Drive'
+    );
+    
+    if (action) {
+        await uploadToDrive();
+    } else {
+        await downloadFromDrive();
+    }
+});
