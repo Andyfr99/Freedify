@@ -1954,6 +1954,7 @@ body {
 
 .eq-slider::-webkit-slider-thumb {
     -webkit-appearance: none;
+    appearance: none;
     width: 16px;
     height: 16px;
     background: var(--accent);
@@ -1990,6 +1991,7 @@ body {
 .eq-boost-slider {
     flex: 1;
     -webkit-appearance: none;
+    appearance: none;
     height: 6px;
     background: var(--bg-tertiary);
     border-radius: 3px;
