@@ -2036,7 +2036,8 @@ let googleAccessToken = null;
 const syncBtn = $('#sync-btn');
 
 // Initialize Google API
-function initGoogleApi() {
+// Initialize Google API
+window.initGoogleApi = function() {
     return new Promise((resolve) => {
         if (typeof gapi === 'undefined') {
             console.log('Google API not loaded yet');
@@ -2048,6 +2049,7 @@ function initGoogleApi() {
                 await gapi.client.init({
                     discoveryDocs: ['https://www.googleapis.com/discovery/v1/apis/drive/v3/rest']
                 });
+                console.log("Google Drive API initialized");
                 resolve(true);
             } catch (e) {
                 console.error('Failed to init Google API:', e);
@@ -2055,6 +2057,11 @@ function initGoogleApi() {
             }
         });
     });
+};
+
+// If gapi is already loaded (race condition), init immediately
+if (typeof gapi !== 'undefined') {
+    window.initGoogleApi();
 }
 
 // Google Sign-In
