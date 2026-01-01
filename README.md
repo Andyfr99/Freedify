@@ -4,9 +4,9 @@ Stream music from anywhere. Search songs, albums, artists, or paste URLs from Sp
 
 ## ✨ Features
 
-### 🧠 AI & Smart Features
+### 🧠 AI & Smart Features - Needs Gemini API Key to work
 - **AI Radio** - Infinite queue recommendations based on your seed track (prevents genre drift)
-- **DJ Mode** - AI-powered mixing tips (transition technique, timing, key compatibility)
+- **DJ Mode** - AI-powered mixing tips (transition technique, timing, key compatibility) - accuracy undetermined
 - **Mix Analysis** - Learn how to mix compatible tracks by Key and BPM
 
 ### 🔍 Search
@@ -75,10 +75,6 @@ Stream music from anywhere. Search songs, albums, artists, or paste URLs from Sp
 - **Save Tracks** - Save audio directly to your "Freedify" folder
 - **Cross-Device** - Sync playlists across devices
 - **Upload/Download** - Manual sync control
-
-### ☁️ Google Drive Sync
-- **Cross-Device** - Sync playlists across devices
-- **Upload/Download** - Manual sync control
 - **Privacy** - Uses Drive appDataFolder (hidden from Drive UI)
 
 ### 📱 Mobile Ready
@@ -112,18 +108,6 @@ Open http://localhost:8000
 4. Render auto-detects `render.yaml`
 5. Click **Deploy**
 
-### ☁️ Google Drive Sync
-- **Save Tracks** - Save audio directly to your "Freedify" folder
-- **Cross-Device** - Sync playlists across devices
-- **Upload/Download** - Manual sync control
-- **Privacy** - Uses Drive appDataFolder (hidden from Drive UI)
-
-### 📱 Mobile Ready
-- **PWA Support** - Install on your phone's home screen
-- **Responsive Design** - Works on any screen size
-- **320kbps MP3** - High quality streaming
-- **Lock Screen Controls** - Play/pause/skip from lock screen
-
 ## ⚙️ Environment Variables (Deployment Secrets)
 
 When deploying to Render (or other hosts), set these in your Dashboard:
@@ -148,7 +132,7 @@ If you hit rate limits, you can add your own keys:
 - `Phish 2025` - All 2025 Phish shows
 - `Phish 2024/12` - December 2024 shows
 - `Grateful Dead 1977` - 1977 Dead from Archive.org
-- `Billy Strings 2023` - 2023 Billy shows
+- `KGLW 2025` - 2025 King Gizzard & the Wizard Lizard shows
 
 **Supported URL Sources:**
 - Spotify (playlists, albums, tracks)
@@ -160,4 +144,4 @@ If you hit rate limits, you can add your own keys:
 - And 1000+ more via yt-dlp
 
 ---
-Made with 🎵 by music lovers, for music lovers.
+Made with 💖 by a music lover, for music lovers.
