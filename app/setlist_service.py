@@ -52,20 +52,39 @@ class SetlistService:
             import re
             
             # Pattern 1: YYYY-MM-DD
-            date_match = re.search(r'(\d{4})-(\d{2})-(\d{2})', query)
+            date_match_iso = re.search(r'(\d{4})-(\d{2})-(\d{2})', query)
             
-            # Pattern 2: Month name and day (e.g. "December 31", "Dec 31st") and optional year
-            # Matches: Month (full or 3-char) + whitespace + Day (1-2 digits) + optional "st/nd/rd/th" + optional comma + optional Year (4 digits)
+            # Pattern 2: DD-MM-YYYY (what user tried)
+            date_match_eu = re.search(r'(\d{2})-(\d{2})-(\d{4})', query)
+            
+            # Pattern 3: Month name and day
             month_match = re.search(r'(?i)\b(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\s+(\d{1,2})(?:st|nd|rd|th)?(?:,)?\s*(\d{4})?', query)
             
-            # Pattern 3: Simple year (19xx or 20xx)
+            # Pattern 4: Simple year
             year_match = re.search(r'\b(19|20)\d{2}\b', query)
             
-            if date_match:
-                # Specific date: YYYY-MM-DD
-                params["date"] = date_match.group(0)
-                params["artistName"] = clean_query(query, date_match.group(0))
+            if date_match_iso:
+                # YYYY-MM-DD -> API needs dd-MM-yyyy
+                dt = datetime.strptime(date_match_iso.group(0), "%Y-%m-%d")
+                params["date"] = dt.strftime("%d-%m-%Y")
+                params["artistName"] = clean_query(query, date_match_iso.group(0))
                 
+            elif date_match_eu:
+                # DD-MM-YYYY -> API needs dd-MM-yyyy (pass as is, or reformat to ensure validity)
+                # User typed: 31-12-2025
+                try:
+                    dt = datetime.strptime(date_match_eu.group(0), "%d-%m-%Y")
+                    params["date"] = dt.strftime("%d-%m-%Y")
+                    params["artistName"] = clean_query(query, date_match_eu.group(0))
+                except ValueError:
+                    # Invalid date (e.g. 99-99-2025), fallback to year or artist
+                    logger.warning(f"Invalid date in query: {date_match_eu.group(0)}")
+                    if year_match:
+                         params["year"] = year_match.group(0)
+                         params["artistName"] = clean_query(query, year_match.group(0))
+                    else:
+                        params["artistName"] = query
+
             elif month_match:
                 # Month Day [Year]
                 try:
@@ -79,13 +98,13 @@ class SetlistService:
                     
                     if year_str:
                         # Full date found
-                        params["date"] = dt.strftime(f"{year_str}-%m-%d")
+                        params["date"] = dt.strftime("%d-%m-%Y")
                     else:
                         # Recursive search or just month param? Setlist API only supports full date or year
                         # If year is missing in "Phish December 31", we might need to guess current year or search by year
                         # For now, let's assume current year if user says "Phish December 31"
                         current_year = datetime.now().year
-                        params["date"] = dt.strftime(f"{current_year}-%m-%d")
+                        params["date"] = dt.strftime(f"%d-%m-{current_year}")
                     
                     params["artistName"] = clean_query(query, month_match.group(0))
                 except Exception as e:
