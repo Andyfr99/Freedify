@@ -13,9 +13,9 @@ Stream music and podcasts from anywhere. Search songs, albums, artists, podcasts
 
 ### 🔍 Search
 - **Deezer-powered** - Search tracks, albums, or artists with no rate limits
-- **YouTube Music** - Search YT Music catalog with the 🎵 YT Music button
+- **YouTube Music** - Search YT Music catalog via **More → YT Music**
 - **Live Show Search** - Search "Phish 2025" or "Grateful Dead 1977" to find live shows
-- **Setlist.fm** - Search concert setlists with the 🎤 Setlists button, auto-matches to audio sources
+- **Setlist.fm** - Search concert setlists via **More → Setlists**, auto-matches to audio sources
   - Added Setlist Detail Modal to preview shows before listening
 - **Podcast Search** - Search and stream podcasts via PodcastIndex API
 - **Episode Details** - Click any episode to see full title, description, and publish date
@@ -28,7 +28,7 @@ Stream music and podcasts from anywhere. Search songs, albums, artists, podcasts
 
 ### 🧠 ListenBrainz Integration
 - **Scrobbling** - Automatically tracks what you listen to (triggers after 50% duration or 4 minutes)
-- **Recommendations** - "✨ For You" section offers personalized tracks based on your history
+- **Recommendations** - "For You" section (via **More → For You**) offers personalized tracks based on your history
 - **Easy Setup** - Configure via `LISTENBRAINZ_TOKEN` environment variable
 
 ### 🎛️ Player Controls
@@ -51,10 +51,10 @@ Stream music and podcasts from anywhere. Search songs, albums, artists, podcasts
 - **Smart Preloading** - Next track buffers automatically
 - **Click to Navigate** - Click track/artist name to search
 
-### 💜 Playlists
-- **Add to Playlist** - Click the 🩷 heart icon on any track to add it to a playlist
+### Playlists
+- **Add to Playlist** - Click the heart icon on any track to add it to a playlist
 - **Create Playlists** - Create new playlists on the fly from the Add to Playlist modal
-- **Playlists Tab** - Click the 💜 Playlists button to view all saved playlists
+- **Playlists Tab** - Click **More → Playlists** to view all saved playlists
 - **Delete Songs** - Remove individual songs from any playlist
 - **Google Drive Sync** - Playlists sync to Google Drive for access across all your devices
 - **Local Backup** - Also stored in browser localStorage (survives restarts)
