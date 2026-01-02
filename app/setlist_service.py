@@ -42,25 +42,66 @@ class SetlistService:
         
         try:
             # Parse query for artist and potential date
+            # Parse query for artist and potential date
             params = {"p": page}
             
-            # Check if query contains a date pattern (YYYY-MM-DD)
+            # Helper to strip date parts from query to get artist name
+            def clean_query(q, match_str):
+                return q.replace(match_str, "").strip()
+
             import re
+            
+            # Pattern 1: YYYY-MM-DD
             date_match = re.search(r'(\d{4})-(\d{2})-(\d{2})', query)
-            year_match = re.search(r'\b(19\d{2}|20\d{2})\b', query)
+            
+            # Pattern 2: Month name and day (e.g. "December 31", "Dec 31st") and optional year
+            # Matches: Month (full or 3-char) + whitespace + Day (1-2 digits) + optional "st/nd/rd/th" + optional comma + optional Year (4 digits)
+            month_match = re.search(r'(?i)\b(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\s+(\d{1,2})(?:st|nd|rd|th)?(?:,)?\s*(\d{4})?', query)
+            
+            # Pattern 3: Simple year (19xx or 20xx)
+            year_match = re.search(r'\b(19|20)\d{2}\b', query)
             
             if date_match:
-                # Search by specific date
+                # Specific date: YYYY-MM-DD
                 params["date"] = date_match.group(0)
-                artist_query = query.replace(date_match.group(0), "").strip()
-                if artist_query:
-                    params["artistName"] = artist_query
+                params["artistName"] = clean_query(query, date_match.group(0))
+                
+            elif month_match:
+                # Month Day [Year]
+                try:
+                    month_str = month_match.group(1)
+                    day_str = month_match.group(2)
+                    year_str = month_match.group(3)
+                    
+                    # Convert month name to number
+                    dt_str = f"{month_str} {day_str} {year_str if year_str else '2000'}" # Dummy year if missing
+                    dt = datetime.strptime(dt_str, "%b %d %Y")
+                    
+                    if year_str:
+                        # Full date found
+                        params["date"] = dt.strftime(f"{year_str}-%m-%d")
+                    else:
+                        # Recursive search or just month param? Setlist API only supports full date or year
+                        # If year is missing in "Phish December 31", we might need to guess current year or search by year
+                        # For now, let's assume current year if user says "Phish December 31"
+                        current_year = datetime.now().year
+                        params["date"] = dt.strftime(f"{current_year}-%m-%d")
+                    
+                    params["artistName"] = clean_query(query, month_match.group(0))
+                except Exception as e:
+                    logger.warning(f"Date parse error: {e}")
+                    # Fallback to year only if possible
+                    if year_match:
+                        params["year"] = year_match.group(0)
+                        params["artistName"] = clean_query(query, year_match.group(0))
+                    else:
+                        params["artistName"] = query
+
             elif year_match:
-                # Search by year
+                # Year only
                 params["year"] = year_match.group(0)
-                artist_query = query.replace(year_match.group(0), "").strip()
-                if artist_query:
-                    params["artistName"] = artist_query
+                params["artistName"] = clean_query(query, year_match.group(0))
+                
             else:
                 # Just artist name
                 params["artistName"] = query

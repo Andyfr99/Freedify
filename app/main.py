@@ -27,6 +27,7 @@ from app.dj_service import dj_service
 from app.ai_radio_service import ai_radio_service
 from app.ytmusic_service import ytmusic_service
 from app.setlist_service import setlist_service
+from app.listenbrainz_service import listenbrainz_service
 from app.cache import cleanup_cache, periodic_cleanup, is_cached, get_cache_path
 
 # Configure logging
@@ -805,6 +806,51 @@ async def service_worker():
     if os.path.exists(sw_path):
         return FileResponse(sw_path, media_type="application/javascript")
     raise HTTPException(status_code=404)
+
+
+# ==================== LISTENBRAINZ ENDPOINTS ====================
+
+@app.post("/api/listenbrainz/now-playing")
+async def listenbrainz_now_playing(track: dict):
+    """Submit 'now playing' status to ListenBrainz."""
+    success = await listenbrainz_service.submit_now_playing(track)
+    return {"success": success}
+
+
+@app.post("/api/listenbrainz/scrobble")
+async def listenbrainz_scrobble(track: dict, listened_at: Optional[int] = None):
+    """Submit a completed listen to ListenBrainz."""
+    success = await listenbrainz_service.submit_listen(track, listened_at)
+    return {"success": success}
+
+
+@app.get("/api/listenbrainz/validate")
+async def listenbrainz_validate():
+    """Validate ListenBrainz token and return username."""
+    username = await listenbrainz_service.validate_token()
+    return {"valid": username is not None, "username": username}
+
+
+@app.get("/api/listenbrainz/recommendations/{username}")
+async def listenbrainz_recommendations(username: str, count: int = 25):
+    """Get personalized recommendations for a user."""
+    recommendations = await listenbrainz_service.get_recommendations(username, count)
+    return {"recommendations": recommendations, "count": len(recommendations)}
+
+
+@app.get("/api/listenbrainz/listens/{username}")
+async def listenbrainz_listens(username: str, count: int = 25):
+    """Get recent listens for a user."""
+    listens = await listenbrainz_service.get_user_listens(username, count)
+    return {"listens": listens, "count": len(listens)}
+
+
+@app.post("/api/listenbrainz/set-token")
+async def listenbrainz_set_token(token: str):
+    """Set ListenBrainz user token (from settings UI)."""
+    listenbrainz_service.set_token(token)
+    username = await listenbrainz_service.validate_token()
+    return {"valid": username is not None, "username": username}
 
 
 if __name__ == "__main__":

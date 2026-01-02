@@ -22,6 +22,63 @@ class MusicBrainzService:
             headers={"User-Agent": self.USER_AGENT}
         )
     
+    async def lookup_recording(self, mbid: str) -> Optional[Dict[str, Any]]:
+        """Look up a recording by MBID.
+        
+        Returns:
+            {
+                'id': '...',
+                'name': 'Track Name',
+                'artists': 'Artist Name',
+                'album': 'Album Name',
+                'album_art': '...',
+                'release_date': '...',
+                'duration': '3:45'
+            }
+        """
+        try:
+            response = await self.client.get(
+                f"{self.MB_API}/recording/{mbid}",
+                params={"fmt": "json", "inc": "releases+artist-credits+release-groups+genres"}
+            )
+            
+            if response.status_code != 200:
+                logger.debug(f"MBID lookup failed: {mbid}")
+                return None
+            
+            data = response.json()
+            
+            # Helper to get artist name
+            artist_credit = data.get("artist-credit", [])
+            artist_name = ", ".join([ac.get("name", "") for ac in artist_credit]) if artist_credit else "Unknown Artist"
+            
+            result = {
+                "id": mbid,
+                "name": data.get("title", "Unknown Track"),
+                "artists": artist_name,
+                "duration": data.get("length", 0) // 1000 if data.get("length") else 0
+            }
+            
+            # Get release info
+            releases = data.get("releases", [])
+            if releases:
+                release = releases[0]
+                result["album"] = release.get("title", "")
+                result["release_date"] = release.get("date", "")
+                
+                # Cover Art
+                release_id = release.get("id")
+                if release_id:
+                    cover_url = await self._get_cover_art(release_id)
+                    if cover_url:
+                        result["album_art"] = cover_url
+            
+            return result
+            
+        except Exception as e:
+            logger.error(f"MusicBrainz recording lookup error: {e}")
+            return None
+
     async def lookup_by_isrc(self, isrc: str) -> Optional[Dict[str, Any]]:
         """Look up a recording by ISRC and return enriched metadata.
         

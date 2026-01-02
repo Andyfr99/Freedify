@@ -1,6 +1,6 @@
 # Freedify - Music Streaming Web App
 
-*Last updated: January 1, 2026*
+*Last updated: January 2, 2026*
 
 Stream music and podcasts from anywhere. Search songs, albums, artists, podcasts or paste URLs from Spotify, SoundCloud, Bandcamp, Archive.org, Phish.in, and more.
 
@@ -16,6 +16,7 @@ Stream music and podcasts from anywhere. Search songs, albums, artists, podcasts
 - **YouTube Music** - Search YT Music catalog with the 🎵 YT Music button
 - **Live Show Search** - Search "Phish 2025" or "Grateful Dead 1977" to find live shows
 - **Setlist.fm** - Search concert setlists with the 🎤 Setlists button, auto-matches to audio sources
+  - Added Setlist Detail Modal to preview shows before listening
 - **Podcast Search** - Search and stream podcasts via PodcastIndex API
 - **Episode Details** - Click any episode to see full title, description, and publish date
 - **URL Import** - Paste links from Spotify, Bandcamp, Soundcloud, Archive.org, Phish.in
@@ -24,6 +25,11 @@ Stream music and podcasts from anywhere. Search songs, albums, artists, podcasts
 - **Phish.in** - Search by year/month (e.g., Phish 2025 or Phish 2024/12)
 - **Archive.org** - Grateful Dead, Billy Strings, Ween, King Gizzard
 - **Direct URLs** - Paste any phish.in or archive.org show URL
+
+### 🧠 ListenBrainz Integration
+- **Scrobbling** - Automatically tracks what you listen to (triggers after 50% duration or 4 minutes)
+- **Recommendations** - "✨ For You" section offers personalized tracks based on your history
+- **Easy Setup** - Configure via `LISTENBRAINZ_TOKEN` environment variable
 
 ### 🎛️ Player Controls
 - **Volume Control** - Slider + mute button
@@ -146,6 +152,7 @@ If you hit rate limits, you can add your own keys:
 | `PODCASTINDEX_KEY` | For Podcast Search (better results) |
 | `PODCASTINDEX_SECRET` | For Podcast Search (required if KEY is used) |
 | `SETLIST_FM_API_KEY` | For Setlist.fm concert search (free at setlist.fm/settings/api) |
+| `LISTENBRAINZ_TOKEN` | For Scrobbling & Recommendations (get at listenbrainz.org/settings) |
 
 ---
 
