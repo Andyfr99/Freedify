@@ -141,11 +141,6 @@ async def search(
                     }
                 # Single track
                 return {"results": [item], "type": "track", "is_url": True, "source": "import"}
-        # Check for live show searches FIRST if no type specified or type is album
-        live_results = await live_show_service.search_live_shows(q)
-        if live_results is not None:
-            return {"results": live_results, "query": q, "type": "album", "source": "live_shows"}
-
         # Podcast Search
         if type == "podcast":
             results = await podcast_service.search_podcasts(q)
@@ -160,6 +155,12 @@ async def search(
         if type == "setlist":
             results = await setlist_service.search_setlists(q)
             return {"results": results, "query": q, "type": "album", "source": "setlist.fm", "offset": offset}
+            
+        # Check for live show searches FIRST if no type specified or type is album
+        # But only if NOT one of the special types above (which returned already)
+        live_results = await live_show_service.search_live_shows(q)
+        if live_results is not None:
+            return {"results": live_results, "query": q, "type": "album", "source": "live_shows"}
         
         # Regular search - Use Deezer (no rate limits)
         logger.info(f"Searching Deezer for: {q} (type: {type}, offset: {offset})")
