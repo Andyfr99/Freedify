@@ -279,6 +279,28 @@ class AudioService:
             logger.error(f"URL transcode error: {e}")
             return None
 
+    async def get_audio_from_url(self, url: str) -> Optional[bytes]:
+        """Get MP3 audio from a URL using yt-dlp (for YouTube, YTMusic, etc.).
+        Returns transcoded MP3 bytes or None on failure.
+        """
+        try:
+            logger.info(f"Fetching audio from URL via yt-dlp: {url[:60]}...")
+            
+            # Extract best audio stream URL using yt-dlp
+            stream_url = self._get_stream_url(url)
+            if not stream_url:
+                logger.error(f"Could not extract stream URL from: {url}")
+                return None
+            
+            logger.info(f"Got stream URL, transcoding to MP3...")
+            
+            # Transcode to MP3
+            mp3_data = self.transcode_url_to_mp3(stream_url)
+            return mp3_data
+            
+        except Exception as e:
+            logger.error(f"get_audio_from_url error: {e}")
+            return None
     
     def __init__(self):
         # Enable redirect following and increase timeout
@@ -840,6 +862,27 @@ class AudioService:
             return None
             
         flac_data, metadata = result
+        
+        # Enrich metadata with MusicBrainz (release year, label, better cover art)
+        try:
+            from app.musicbrainz_service import musicbrainz_service
+            mb_data = await musicbrainz_service.lookup_by_isrc(isrc)
+            if mb_data:
+                # Fill in missing fields from MusicBrainz
+                if not metadata.get("year") and mb_data.get("release_date"):
+                    metadata["year"] = mb_data["release_date"]
+                if mb_data.get("label"):
+                    metadata["label"] = mb_data["label"]
+                # Use MusicBrainz cover art if we don't have one
+                if not metadata.get("album_art_data") and mb_data.get("cover_art_url"):
+                    try:
+                        cover_resp = await self.client.get(mb_data["cover_art_url"])
+                        if cover_resp.status_code == 200:
+                            metadata["album_art_data"] = cover_resp.content
+                            logger.info("Using cover art from Cover Art Archive")
+                    except: pass
+        except Exception as e:
+            logger.debug(f"MusicBrainz enrichment skipped: {e}")
         
         # Transcode/Passthrough
         loop = asyncio.get_event_loop()

@@ -279,13 +279,19 @@ function showPlaylistDetail(playlist) {
     showDetailView(albumData, playlist.tracks);
 }
 
-async function performSearch(query) {
+async function performSearch(query, append = false) {
     if (!query) return;
     
-    showLoading(`Searching for "${query}"...`);
+    // Track search state for Load More
+    if (!append) {
+        state.searchOffset = 0;
+        state.lastSearchQuery = query;
+    }
+    
+    showLoading(append ? 'Loading more...' : `Searching for "${query}"...`);
     
     try {
-        const response = await fetch(`/api/search?q=${encodeURIComponent(query)}&type=${state.searchType}`);
+        const response = await fetch(`/api/search?q=${encodeURIComponent(query)}&type=${state.searchType}&offset=${state.searchOffset}`);
         const data = await response.json();
         
         if (!response.ok) throw new Error(data.detail || 'Search failed');
@@ -301,7 +307,20 @@ async function performSearch(query) {
             }
         }
         
-        renderResults(data.results, data.type || state.searchType);
+        renderResults(data.results, data.type || state.searchType, append);
+        
+        // Update offset for next load
+        state.searchOffset += data.results.length;
+        
+        // Show/hide Load More button
+        const loadMoreBtn = $('#load-more-btn');
+        if (loadMoreBtn) {
+            if (data.results.length >= 20) {
+                loadMoreBtn.classList.remove('hidden');
+            } else {
+                loadMoreBtn.classList.add('hidden');
+            }
+        }
         
     } catch (error) {
         console.error('Search error:', error);
@@ -309,19 +328,36 @@ async function performSearch(query) {
     }
 }
 
-function renderResults(results, type) {
+function renderResults(results, type, append = false) {
+    const loadMoreBtn = $('#load-more-btn');
+    
     if (!results || results.length === 0) {
-        resultsContainer.innerHTML = `
-            <div class="empty-state">
-                <span class="empty-icon">🔍</span>
-                <p>No results found</p>
-            </div>
-        `;
+        if (!append) {
+            resultsContainer.innerHTML = `
+                <div class="empty-state">
+                    <span class="empty-icon">🔍</span>
+                    <p>No results found</p>
+                </div>
+            `;
+            if (loadMoreBtn) loadMoreBtn.classList.add('hidden');
+        }
         return;
     }
     
-    const grid = document.createElement('div');
-    grid.className = 'results-grid';
+    let grid;
+    if (append) {
+        // Get existing grid or create new
+        grid = resultsContainer.querySelector('.results-grid');
+        if (!grid) {
+            grid = document.createElement('div');
+            grid.className = 'results-grid';
+            resultsContainer.innerHTML = '';
+            resultsContainer.appendChild(grid);
+        }
+    } else {
+        grid = document.createElement('div');
+        grid.className = 'results-grid';
+    }
     
     // For 'podcast' we reuse album card style
     if (type === 'podcast') {
@@ -343,8 +379,11 @@ function renderResults(results, type) {
         });
     }
     
-    resultsContainer.innerHTML = '';
-    resultsContainer.appendChild(grid);
+    
+    if (!append) {
+        resultsContainer.innerHTML = '';
+        resultsContainer.appendChild(grid);
+    }
     
     // Attach click listeners
     if (type === 'track') {
@@ -550,13 +589,16 @@ function renderTrackCard(track) {
 // ... (keep renderAlbumCard and renderArtistCard as is) ...
 
 function renderAlbumCard(album) {
+    const year = album.release_date ? album.release_date.slice(0, 4) : '';
+    const trackInfo = album.total_tracks ? `${album.total_tracks} tracks` : '';
+    const meta = [trackInfo, year].filter(Boolean).join(' • ');
     return `
         <div class="album-item" data-id="${album.id}">
             <img class="album-art" src="${album.album_art || '/static/icon.svg'}" alt="Album art" loading="lazy">
             <div class="album-info">
                 <p class="album-name">${escapeHtml(album.name)}</p>
                 <p class="album-artist">${escapeHtml(album.artists)}</p>
-                <p class="album-tracks-count">${album.total_tracks || ''} tracks • ${album.release_date?.slice(0, 4) || ''}</p>
+                <p class="album-tracks-count">${meta}</p>
             </div>
         </div>
     `;
@@ -830,13 +872,16 @@ showEmptyState();
 
 
 function renderAlbumCard(album) {
+    const year = album.release_date ? album.release_date.slice(0, 4) : '';
+    const trackInfo = album.total_tracks ? `${album.total_tracks} tracks` : '';
+    const meta = [trackInfo, year].filter(Boolean).join(' • ');
     return `
         <div class="album-item" data-id="${album.id}">
             <img class="album-art" src="${album.album_art || '/static/icon.svg'}" alt="Album art" loading="lazy">
             <div class="album-info">
                 <p class="album-name">${escapeHtml(album.name)}</p>
                 <p class="album-artist">${escapeHtml(album.artists)}</p>
-                <p class="album-tracks-count">${album.total_tracks || ''} tracks • ${album.release_date?.slice(0, 4) || ''}</p>
+                <p class="album-tracks-count">${meta}</p>
             </div>
         </div>
     `;
@@ -3355,3 +3400,12 @@ addToPlaylistBtn?.addEventListener('click', () => {
 // Expose for queue item hearts (will be wired in updateQueueUI)
 window.openAddToPlaylistModal = openAddToPlaylistModal;
 
+// ========== LOAD MORE RESULTS ==========
+const loadMoreBtn = $('#load-more-btn');
+if (loadMoreBtn) {
+    loadMoreBtn.addEventListener('click', () => {
+        if (state.lastSearchQuery) {
+            performSearch(state.lastSearchQuery, true);
+        }
+    });
+}

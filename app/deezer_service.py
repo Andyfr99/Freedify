@@ -26,9 +26,9 @@ class DeezerService:
     
     # ========== TRACK METHODS ==========
     
-    async def search_tracks(self, query: str, limit: int = 20) -> List[Dict[str, Any]]:
+    async def search_tracks(self, query: str, limit: int = 20, offset: int = 0) -> List[Dict[str, Any]]:
         """Search for tracks."""
-        data = await self._api_request("/search/track", {"q": query, "limit": limit})
+        data = await self._api_request("/search/track", {"q": query, "limit": limit, "index": offset})
         return [self._format_track(item) for item in data.get("data", [])]
     
     def _format_track(self, item: dict) -> dict:
@@ -54,9 +54,9 @@ class DeezerService:
     
     # ========== ALBUM METHODS ==========
     
-    async def search_albums(self, query: str, limit: int = 20) -> List[Dict[str, Any]]:
+    async def search_albums(self, query: str, limit: int = 20, offset: int = 0) -> List[Dict[str, Any]]:
         """Search for albums."""
-        data = await self._api_request("/search/album", {"q": query, "limit": limit})
+        data = await self._api_request("/search/album", {"q": query, "limit": limit, "index": offset})
         return [self._format_album(item) for item in data.get("data", [])]
     
     async def get_album(self, album_id: str) -> Optional[Dict[str, Any]]:
@@ -109,9 +109,9 @@ class DeezerService:
     
     # ========== ARTIST METHODS ==========
     
-    async def search_artists(self, query: str, limit: int = 20) -> List[Dict[str, Any]]:
+    async def search_artists(self, query: str, limit: int = 20, offset: int = 0) -> List[Dict[str, Any]]:
         """Search for artists."""
-        data = await self._api_request("/search/artist", {"q": query, "limit": limit})
+        data = await self._api_request("/search/artist", {"q": query, "limit": limit, "index": offset})
         return [self._format_artist(item) for item in data.get("data", [])]
     
     async def get_artist(self, artist_id: str) -> Optional[Dict[str, Any]]:

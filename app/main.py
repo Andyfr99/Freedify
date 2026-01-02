@@ -25,6 +25,8 @@ from app.audio_service import audio_service
 from app.podcast_service import podcast_service
 from app.dj_service import dj_service
 from app.ai_radio_service import ai_radio_service
+from app.ytmusic_service import ytmusic_service
+from app.setlist_service import setlist_service
 from app.cache import cleanup_cache, periodic_cleanup, is_cached, get_cache_path
 
 # Configure logging
@@ -102,7 +104,8 @@ async def health_check():
 @app.get("/api/search")
 async def search(
     q: str = Query(..., min_length=1, description="Search query"),
-    type: str = Query("track", description="Search type: track, album, artist, or podcast")
+    type: str = Query("track", description="Search type: track, album, artist, or podcast"),
+    offset: int = Query(0, description="Offset for pagination")
 ):
     """Search for tracks, albums, artists, or podcasts."""
     try:
@@ -145,18 +148,28 @@ async def search(
         # Podcast Search
         if type == "podcast":
             results = await podcast_service.search_podcasts(q)
-            return {"results": results, "query": q, "type": "podcast", "source": "podcast"}
+            return {"results": results, "query": q, "type": "podcast", "source": "podcast", "offset": offset}
+        
+        # YouTube Music Search
+        if type == "ytmusic":
+            results = await ytmusic_service.search_tracks(q, limit=20, offset=offset)
+            return {"results": results, "query": q, "type": "track", "source": "ytmusic", "offset": offset}
+        
+        # Setlist.fm Search
+        if type == "setlist":
+            results = await setlist_service.search_setlists(q)
+            return {"results": results, "query": q, "type": "album", "source": "setlist.fm", "offset": offset}
         
         # Regular search - Use Deezer (no rate limits)
-        logger.info(f"Searching Deezer for: {q} (type: {type})")
+        logger.info(f"Searching Deezer for: {q} (type: {type}, offset: {offset})")
         if type == "album":
-            results = await deezer_service.search_albums(q, limit=20)
+            results = await deezer_service.search_albums(q, limit=20, offset=offset)
         elif type == "artist":
-            results = await deezer_service.search_artists(q, limit=20)
+            results = await deezer_service.search_artists(q, limit=20, offset=offset)
         else:
-            results = await deezer_service.search_tracks(q, limit=20)
+            results = await deezer_service.search_tracks(q, limit=20, offset=offset)
         
-        return {"results": results, "query": q, "type": type, "source": "deezer"}
+        return {"results": results, "query": q, "type": type, "source": "deezer", "offset": offset}
     except Exception as e:
         logger.error(f"Search error: {e}")
         raise HTTPException(status_code=500, detail=str(e))
@@ -254,6 +267,16 @@ async def get_album(album_id: str):
             # Podcast Import (PodcastIndex)
             feed_id = album_id.replace("pod_", "")
             album = await podcast_service.get_podcast_episodes(feed_id)
+        elif album_id.startswith("setlist_"):
+            # Setlist.fm - get full setlist with tracks
+            setlist_id = album_id.replace("setlist_", "")
+            album = await setlist_service.get_setlist(setlist_id)
+            if album and album.get("audio_source") == "phish.in":
+                # Phish show - fetch audio from phish.in
+                album["audio_available"] = True
+            elif album and album.get("audio_search"):
+                # Other artist - will search Archive.org
+                album["audio_available"] = True
         else:
             # Unknown source - try Deezer
             album = await deezer_service.get_album(album_id)
@@ -351,6 +374,48 @@ async def stream_audio(
             except Exception as e:
                 logger.warning(f"Failed to proxy LINK: {e}")
                 # Fall through to normal processing
+        
+        # YouTube Music tracks - use yt-dlp directly with YouTube URL
+        if isrc.startswith("ytm_"):
+            video_id = isrc.replace("ytm_", "")
+            youtube_url = f"https://music.youtube.com/watch?v={video_id}"
+            logger.info(f"YTMusic track detected, fetching via yt-dlp: {youtube_url}")
+            
+            # Check cache first
+            if is_cached(isrc, "mp3"):
+                cache_path = get_cache_path(isrc, "mp3")
+                logger.info(f"Serving YTM from cache: {cache_path}")
+                return FileResponse(
+                    cache_path,
+                    media_type="audio/mpeg",
+                    headers={"Accept-Ranges": "bytes", "Cache-Control": "public, max-age=86400"}
+                )
+            
+            # Get stream URL via yt-dlp
+            from fastapi.responses import StreamingResponse
+            import httpx
+            
+            stream_url = audio_service._get_stream_url(youtube_url)
+            if not stream_url:
+                raise HTTPException(status_code=404, detail="Could not extract YouTube Music audio URL")
+            
+            logger.info(f"Proxying YTM audio directly (no transcode): {stream_url[:60]}...")
+            
+            # Proxy the stream directly - no transcoding needed, browsers play Opus/AAC natively
+            async def proxy_ytm_stream():
+                async with httpx.AsyncClient(follow_redirects=True, timeout=300.0) as client:
+                    async with client.stream("GET", stream_url) as response:
+                        async for chunk in response.aiter_bytes(chunk_size=65536):
+                            yield chunk
+            
+            # Determine content type from URL
+            content_type = "audio/webm" if "webm" in stream_url else "audio/mp4"
+            
+            return StreamingResponse(
+                proxy_ytm_stream(),
+                media_type=content_type,
+                headers={"Cache-Control": "no-cache"}
+            )
         
         # Check cache
         if is_cached(isrc, "mp3"):

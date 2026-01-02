@@ -765,6 +765,27 @@ body {
     border-color: var(--accent);
 }
 
+.load-more-btn {
+    display: block;
+    width: 100%;
+    max-width: 300px;
+    margin: var(--spacing-lg) auto;
+    padding: var(--spacing-md) var(--spacing-lg);
+    background: var(--bg-tertiary);
+    color: var(--text-primary);
+    border: 1px solid var(--accent);
+    border-radius: var(--radius-full);
+    font-size: 0.875rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.load-more-btn:hover {
+    background: var(--accent);
+    color: white;
+}
+
 /* ==================== Detail View (Albums/Playlists) ==================== */
 .detail-view {
     position: fixed;

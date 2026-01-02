@@ -13,7 +13,9 @@ Stream music and podcasts from anywhere. Search songs, albums, artists, podcasts
 
 ### 🔍 Search
 - **Deezer-powered** - Search tracks, albums, or artists with no rate limits
+- **YouTube Music** - Search YT Music catalog with the 🎵 YT Music button
 - **Live Show Search** - Search "Phish 2025" or "Grateful Dead 1977" to find live shows
+- **Setlist.fm** - Search concert setlists with the 🎤 Setlists button, auto-matches to audio sources
 - **Podcast Search** - Search and stream podcasts via PodcastIndex API
 - **Episode Details** - Click any episode to see full title, description, and publish date
 - **URL Import** - Paste links from Spotify, Bandcamp, Soundcloud, Archive.org, Phish.in
@@ -35,6 +37,7 @@ Stream music and podcasts from anywhere. Search songs, albums, artists, podcasts
 - **Full Albums/Playlists** - Batch download as Artist - Album.zip
 - **Multiple Formats** - FLAC, AIFF, ALAC, WAV, 320kbps MP3
 - **Current Track** - Press ⬇ on player bar or fullscreen to download now playing
+- **MusicBrainz Metadata** - Downloads enriched with release year, label, and high-res cover art
 
 ### 📋 Queue Management
 - **Drag to Reorder** - Drag tracks to rearrange
@@ -142,6 +145,7 @@ If you hit rate limits, you can add your own keys:
 | `SPOTIFY_SP_DC` | Cookie for authenticated web player access |
 | `PODCASTINDEX_KEY` | For Podcast Search (better results) |
 | `PODCASTINDEX_SECRET` | For Podcast Search (required if KEY is used) |
+| `SETLIST_FM_API_KEY` | For Setlist.fm concert search (free at setlist.fm/settings/api) |
 
 ---
 
