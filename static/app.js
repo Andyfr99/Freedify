@@ -178,6 +178,25 @@ function addToPlaylist(playlistId, track) {
     showToast(`Added to "${playlist.name}"`);
 }
 
+function deleteFromPlaylist(playlistId, trackId) {
+    const playlist = state.playlists.find(p => p.id === playlistId);
+    if (!playlist) return;
+    
+    const idx = playlist.tracks.findIndex(t => t.id === trackId);
+    if (idx !== -1) {
+        playlist.tracks.splice(idx, 1);
+        savePlaylists();
+        showToast('Track removed');
+        // Refresh view if currently viewing this playlist
+        if (state.currentPlaylistView === playlistId) {
+            showPlaylistDetail(playlist);
+        }
+    }
+}
+
+// Expose for use in detail view
+window.deleteFromPlaylist = deleteFromPlaylist;
+
 function deletePlaylist(playlistId) {
     state.playlists = state.playlists.filter(p => p.id !== playlistId);
     savePlaylists();
@@ -245,13 +264,17 @@ function renderPlaylistsView() {
 }
 
 function showPlaylistDetail(playlist) {
+    // Track which playlist is being viewed
+    state.currentPlaylistView = playlist.id;
+    
     // Reuse the existing detail view
     const albumData = {
         id: playlist.id,
         name: playlist.name,
         artists: `${playlist.tracks.length} tracks`,
         image: playlist.tracks[0]?.album_art || '/static/icon.svg',
-        is_playlist: true
+        is_playlist: true,
+        is_user_playlist: true  // Flag to indicate this is a user-created playlist (for delete buttons)
     };
     showDetailView(albumData, playlist.tracks);
 }
@@ -584,6 +607,7 @@ async function openArtist(artistId) {
 // Updated showDetailView to handle downloads
 function showDetailView(item, tracks) {
     state.detailTracks = tracks || [];
+    const isUserPlaylist = item.is_user_playlist || false;
     
     // Render info section
     const isArtist = item.type === 'artist';
@@ -601,9 +625,9 @@ function showDetailView(item, tracks) {
         </div>
     `;
     
-    // Render tracks with download button
+    // Render tracks with download button (and delete for user playlists)
     detailTracks.innerHTML = tracks.map((t, i) => `
-        <div class="track-item" data-index="${i}">
+        <div class="track-item" data-index="${i}" data-track-id="${t.id}">
             <img class="track-album-art" src="${t.album_art || image}" alt="Art" loading="lazy">
             <div class="track-info">
                 <p class="track-name">${escapeHtml(t.name)}</p>
@@ -619,6 +643,11 @@ function showDetailView(item, tracks) {
                 <button class="download-btn" title="Download" onclick="event.stopPropagation(); openDownloadModal('${encodeURIComponent(JSON.stringify(t))}')">
                     ⬇
                 </button>
+                ${isUserPlaylist ? `
+                <button class="delete-track-btn" title="Remove from playlist" onclick="event.stopPropagation(); deleteFromPlaylist('${item.id}', '${t.id}')">
+                    ✕
+                </button>
+                ` : ''}
             </div>
         </div>
     `).join('');
@@ -627,7 +656,7 @@ function showDetailView(item, tracks) {
     $$('#detail-tracks .track-item').forEach((el, i) => {
         el.addEventListener('click', (e) => {
             // Don't play if clicking download button (already handled by stopPropagation but safer)
-            if (e.target.closest('.download-btn')) return;
+            if (e.target.closest('.download-btn') || e.target.closest('.delete-track-btn')) return;
             playTrack(tracks[i]);
         });
     });
@@ -1942,6 +1971,15 @@ const themeOptions = $$('.theme-option');
             opt.classList.add('active');
         }
     });
+    
+    // Sync meta theme-color on load
+    const metaThemeColor = document.querySelector('meta[name="theme-color"]');
+    if (metaThemeColor && savedTheme) {
+        setTimeout(() => {
+            const accentColor = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim();
+            if (accentColor) metaThemeColor.content = accentColor;
+        }, 50);
+    }
 })();
 
 // Toggle theme picker
@@ -1974,6 +2012,17 @@ themeOptions.forEach(opt => {
         themePicker.classList.add('hidden');
         
         showToast(`Theme changed to ${opt.textContent}`);
+        
+        // Update meta theme-color for mobile browser UI
+        const metaThemeColor = document.querySelector('meta[name="theme-color"]');
+        if (metaThemeColor) {
+            // Get computed color for current theme
+            // Wait a tick for class change to apply
+            setTimeout(() => {
+                const accentColor = getComputedStyle(document.documentElement).getPropertyValue('--accent').trim();
+                if (accentColor) metaThemeColor.content = accentColor;
+            }, 50);
+        }
     });
 });
 
@@ -3169,3 +3218,81 @@ audioPlayer?.addEventListener('ended', () => {
 
 // alert("DEBUG: App.js initialization COMPLETE. If you see this, script is good.");
 console.log("App.js initialization COMPLETE");
+
+// ========== ADD TO PLAYLIST MODAL ==========
+const playlistModal = $('#playlist-modal');
+const playlistList = $('#playlist-list');
+const newPlaylistInput = $('#new-playlist-input');
+const createPlaylistBtn = $('#create-playlist-btn');
+const playlistModalClose = $('#playlist-modal-close');
+const addToPlaylistBtn = $('#add-to-playlist-btn');
+
+let pendingTrackForPlaylist = null;
+
+function openAddToPlaylistModal(track) {
+    if (!track) {
+        showToast('No track selected');
+        return;
+    }
+    pendingTrackForPlaylist = track;
+    
+    // Render playlist list
+    if (state.playlists.length === 0) {
+        playlistList.innerHTML = '<p style="color: var(--text-tertiary); text-align:center; padding:16px;">No playlists yet. Create one below!</p>';
+    } else {
+        playlistList.innerHTML = state.playlists.map(p => `
+            <div class="playlist-list-item" data-playlist-id="${p.id}">
+                ${escapeHtml(p.name)} <span style="opacity:0.6">(${p.tracks.length})</span>
+            </div>
+        `).join('');
+        
+        // Click handler for each playlist item
+        playlistList.querySelectorAll('.playlist-list-item').forEach(el => {
+            el.addEventListener('click', () => {
+                addToPlaylist(el.dataset.playlistId, pendingTrackForPlaylist);
+                closeAddToPlaylistModal();
+            });
+        });
+    }
+    
+    playlistModal.classList.remove('hidden');
+}
+
+function closeAddToPlaylistModal() {
+    playlistModal.classList.add('hidden');
+    pendingTrackForPlaylist = null;
+    newPlaylistInput.value = '';
+}
+
+// Create new playlist from modal
+createPlaylistBtn?.addEventListener('click', () => {
+    const name = newPlaylistInput.value.trim();
+    if (!name) {
+        showToast('Enter a playlist name');
+        return;
+    }
+    const newPlaylist = createPlaylist(name, pendingTrackForPlaylist ? [pendingTrackForPlaylist] : []);
+    closeAddToPlaylistModal();
+});
+
+// Close modal
+playlistModalClose?.addEventListener('click', closeAddToPlaylistModal);
+playlistModal?.addEventListener('click', (e) => {
+    if (e.target === playlistModal) closeAddToPlaylistModal();
+});
+
+// Heart button in More Menu -> opens modal for current track
+addToPlaylistBtn?.addEventListener('click', () => {
+    const currentTrack = state.queue[state.currentIndex];
+    if (currentTrack) {
+        openAddToPlaylistModal(currentTrack);
+        // Close More menu
+        $('#player-more-menu')?.classList.add('hidden');
+    } else {
+        showToast('No track playing');
+    }
+});
+
+// Expose for queue item hearts (will be wired in updateQueueUI)
+window.openAddToPlaylistModal = openAddToPlaylistModal;
+

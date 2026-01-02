@@ -89,7 +89,7 @@
                 <button class="type-btn" data-type="album">Albums</button>
                 <button class="type-btn" data-type="artist">Artists</button>
                 <button class="type-btn" data-type="podcast">Podcasts</button>
-                <button class="type-btn favorites-btn" data-type="favorites">❤️ Favorites</button>
+                <button class="type-btn favorites-btn" data-type="favorites">💜 Playlists</button>
             </div>
         </section>
 
@@ -193,7 +193,6 @@
                     <button id="prev-btn" class="control-btn" title="Previous">⏮</button>
                     <button id="play-btn" class="control-btn play-btn" title="Play/Pause">▶</button>
                     <button id="next-btn" class="control-btn" title="Next">⏭</button>
-                    <button id="queue-btn" class="control-btn queue-toggle" title="Queue">☰</button>
                     <button id="fs-toggle-btn" class="control-btn" title="Full Screen">⤢</button>
                     <button id="more-controls-btn" class="control-btn" title="More Options">⋮</button>
                 </div>
@@ -211,10 +210,12 @@
                 <div class="more-menu-grid">
                     <button id="shuffle-queue-btn" class="control-btn" title="Shuffle Queue">⤭</button>
                     <button id="repeat-btn" class="control-btn" title="Repeat: Off">⟳</button>
-                    <button id="download-current-btn" class="control-btn" title="Download Current Track">⬇</button>
-                    <button id="ai-radio-btn" class="control-btn ai-radio-btn" title="AI Radio">📻</button>
+                    <button id="download-current-btn" class="control-btn" title="Download">⬇</button>
+                    <button id="queue-btn" class="control-btn queue-toggle" title="Queue">☰</button>
                     <button id="mute-btn" class="control-btn volume-btn" title="Mute">🔊</button>
                     <button id="eq-toggle-btn" class="control-btn eq-btn" title="Equalizer">🎛️</button>
+                    <button id="ai-radio-btn" class="control-btn ai-radio-btn" title="AI Radio">📻</button>
+                    <button id="add-to-playlist-btn" class="control-btn" title="Add to Playlist">🩷</button>
                 </div>
                 <!-- Volume slider inside menu for mobile compactness -->
                 <div class="more-menu-volume">
@@ -364,6 +365,19 @@
         onclick="this.value=null"
         onchange="if(window.handleFiles) { window.handleFiles(this.files); } else { alert('Error: handleFiles not loaded'); }"
     >
+
+    <!-- Playlist Selection Modal -->
+    <div id="playlist-modal" class="modal hidden">
+        <div class="modal-content playlist-modal-content">
+            <h3>Add to Playlist</h3>
+            <div id="playlist-list" class="playlist-list"></div>
+            <div class="create-playlist-row">
+                <input type="text" id="new-playlist-input" placeholder="New playlist name..." class="new-playlist-input">
+                <button id="create-playlist-btn" class="btn-primary">+</button>
+            </div>
+            <button id="playlist-modal-close" class="btn-secondary" style="width:100%; margin-top:12px;">Cancel</button>
+        </div>
+    </div>
 
     <script src="static/jsmediatags.min.js"></script>
     <script src="https://apis.google.com/js/api.js"></script>

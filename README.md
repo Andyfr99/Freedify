@@ -2,7 +2,7 @@
 
 *Last updated: January 1, 2026*
 
-Stream music from anywhere. Search songs, albums, artists, or paste URLs from Spotify, Bandcamp, Archive.org, Phish.in, and more.
+Stream music and podcasts from anywhere. Search songs, albums, artists, podcasts or paste URLs from Spotify, SoundCloud, Bandcamp, Archive.org, Phish.in, and more.
 
 ## ✨ Features
 
@@ -36,32 +36,19 @@ Stream music from anywhere. Search songs, albums, artists, or paste URLs from Sp
 - **Multiple Formats** - FLAC, AIFF, ALAC, WAV, 320kbps MP3
 - **Current Track** - Press ⬇ on player bar or fullscreen to download now playing
 
-### ⌨️ Keyboard Shortcuts
-
-| Key | Action |
-|-----|--------|
-| Space | Play/Pause |
-| ← / → | Previous/Next track |
-| Shift+← / Shift+→ | Seek -/+ 10 seconds |
-| ↑ / ↓ | Volume up/down |
-| M | Mute/Unmute |
-| S | Shuffle queue |
-| R | Cycle repeat mode |
-| F | Toggle fullscreen |
-| Q | Toggle queue |
-| ? | Show shortcuts help |
-
 ### 📋 Queue Management
 - **Drag to Reorder** - Drag tracks to rearrange
 - **Add All / Shuffle All** - From any album or playlist
 - **Smart Preloading** - Next track buffers automatically
 - **Click to Navigate** - Click track/artist name to search
 
-### ❤️ Playlist Manager
-- **Save Playlists** - Import Spotify/Bandcamp playlist, click "❤️ Save to Favorites"
-- **Favorites Tab** - Click the ❤️ Favorites button to view all saved playlists
-- **Instant Recall** - Click any saved playlist to load tracks, then Queue All or Shuffle
-- **Persistent Storage** - Playlists stored in browser localStorage (survives restarts)
+### 💜 Playlists
+- **Add to Playlist** - Click the 🩷 heart icon on any track to add it to a playlist
+- **Create Playlists** - Create new playlists on the fly from the Add to Playlist modal
+- **Playlists Tab** - Click the 💜 Playlists button to view all saved playlists
+- **Delete Songs** - Remove individual songs from any playlist
+- **Google Drive Sync** - Playlists sync to Google Drive for access across all your devices
+- **Local Backup** - Also stored in browser localStorage (survives restarts)
 - **Delete Playlists** - Hover over playlist and click 🗑️ to remove
 
 ### 🎛️ Equalizer
@@ -85,6 +72,23 @@ Stream music from anywhere. Search songs, albums, artists, or paste URLs from Sp
 - **Responsive Design** - Works on any screen size
 - **320kbps MP3** - High quality streaming
 - **Lock Screen Controls** - Play/pause/skip from lock screen
+
+---
+
+### ⌨️ Keyboard Shortcuts
+
+| Key | Action |
+|-----|--------|
+| Space | Play/Pause |
+| ← / → | Previous/Next track |
+| Shift+← / Shift+→ | Seek -/+ 10 seconds |
+| ↑ / ↓ | Volume up/down |
+| M | Mute/Unmute |
+| S | Shuffle queue |
+| R | Cycle repeat mode |
+| F | Toggle fullscreen |
+| Q | Toggle queue |
+| ? | Show shortcuts help |
 
 ---
 
