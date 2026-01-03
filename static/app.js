@@ -4108,7 +4108,8 @@ function updateMiniPlayerDOM() {
                         <div class="winamp-btn" id="wa-play" title="Play"><svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg></div>
                         <div class="winamp-btn" id="wa-pause" title="Pause"><svg viewBox="0 0 24 24"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg></div>
                         <div class="winamp-btn" id="wa-next" title="Next"><svg viewBox="0 0 24 24"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg></div>
-                        <input type="range" class="winamp-slider" id="wa-vol" min="0" max="100" value="${state.volume * 100}">
+                        <div style="font-size: 8px; color: #fff; margin-left: 4px; font-family: 'Courier New', monospace;">VOL</div>
+                        <input type="range" class="winamp-slider" id="wa-vol" title="Volume Control" min="0" max="100" value="${state.volume * 100}">
                     </div>
                 </div>
             </div>

@@ -45,6 +45,14 @@ Stream music and podcasts from anywhere. Search songs, albums, artists, podcasts
 - **Repeat Modes** - Off / Repeat All / Repeat One
 - **Shuffle** - Shuffle playlist or current queue
 - **Fullscreen Mode** - Click album art to expand
+- **Mini Player** - Pop-out window for always-on-top playback control
+
+### 🖼️ Pop-out Mini Player
+- **Always-on-Top** - Built with the latest Document Picture-in-Picture API to stay visible over other windows
+- **Scrolling Marquee** - Animated artist and track names for long titles
+- **Full Control** - Play, pause, skip, and volume adjustment directly from the mini window
+- **Retro Aesthetic** - Winamp-inspired classic display for a nostalgic feel
+- **Automatic Sync** - Seamlessly stays in sync with the main player state
 
 ### 💾 Download & Save
 - **Save to Drive** - Direct save to Google Drive (FLAC/AIFF/MP3)
