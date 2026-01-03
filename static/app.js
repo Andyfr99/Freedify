@@ -77,6 +77,14 @@ const progressBar = $('#progress-bar');
 const currentTime = $('#current-time');
 const duration = $('#duration');
 const audioPlayer = $('#audio-player');
+const audioPlayer2 = $('#audio-player-2');
+
+// Crossfade / Gapless state
+let activePlayer = 1; // 1 or 2, which player is currently active
+let crossfadeEnabled = localStorage.getItem('freedify_crossfade') === 'true';
+const CROSSFADE_DURATION = 2000; // 2 seconds
+let crossfadeTimeout = null;
+let preloadedPlayer = null; // Ready player with next track loaded
 
 // Volume Controls
 const volumeSlider = $('#volume-slider');
@@ -835,13 +843,29 @@ function showDetailView(item, tracks) {
     `).join('');
     
     // Add click handlers for playing
-    $$('#detail-tracks .track-item').forEach((el, i) => {
-        el.addEventListener('click', (e) => {
-            // Don't play if clicking download button (already handled by stopPropagation but safer)
-            if (e.target.closest('.download-btn') || e.target.closest('.delete-track-btn')) return;
-            playTrack(tracks[i]);
-        });
-    });
+    // Use event delegation for better performance and reliability
+    detailTracks.onclick = (e) => {
+        const trackItem = e.target.closest('.track-item');
+        if (!trackItem) return;
+        
+        // Don't play if clicking buttons
+        if (e.target.closest('.download-btn') || e.target.closest('.delete-track-btn') || e.target.closest('.info-btn')) return;
+        
+        const index = parseInt(trackItem.dataset.index, 10);
+        if (isNaN(index)) return;
+        
+        // Auto-queue: queue all tracks from this position forward
+        // Use state.detailTracks to ensure we have the latest list
+        const sourceTracks = state.detailTracks || tracks;
+        const remainingTracks = sourceTracks.slice(index);
+        
+        console.log(`Auto-queueing ${remainingTracks.length} tracks starting from index ${index}`);
+        
+        state.queue = remainingTracks;
+        state.currentIndex = 0;
+        updateQueueUI();
+        loadTrack(remainingTracks[0]);
+    };
     
     // Show detail view
     detailView.classList.remove('hidden');
@@ -1315,37 +1339,50 @@ async function loadTrack(track) {
     state.scrobbledCurrent = false; // Reset scrobble status
     playerBar.classList.remove('hidden');
     
-    playerBar.classList.remove('hidden');
+    // Reset preload state on direct track load
+    preloadedTrackId = null;
+    preloadedPlayer = null;
+    if (crossfadeTimeout) {
+        clearTimeout(crossfadeTimeout);
+        crossfadeTimeout = null;
+    }
     
     updatePlayerUI();
     updateQueueUI();
     updateFullscreenUI(track); // Sync FS
     
+    // Get the active player
+    const player = getActivePlayer();
+    const playerGain = activePlayer === 1 ? gainNode1 : gainNode2;
+    
+    // Make sure active player gain is at 1
+    if (playerGain) playerGain.gain.value = 1;
+    
     // Play
     if (track.is_local && track.src) {
-        audioPlayer.src = track.src;
+        player.src = track.src;
     } else {
         const hifiParam = state.hifiMode ? '&hifi=true' : '';
-        audioPlayer.src = `/api/stream/${track.isrc || track.id}?q=${encodeURIComponent(track.name + ' ' + track.artists)}${hifiParam}`;
+        player.src = `/api/stream/${track.isrc || track.id}?q=${encodeURIComponent(track.name + ' ' + track.artists)}${hifiParam}`;
     }
     
     try {
-        audioPlayer.load();
+        player.load();
         
         await new Promise((resolve, reject) => {
-            audioPlayer.oncanplay = resolve;
-            audioPlayer.onerror = () => reject(new Error('Failed to load audio'));
+            player.oncanplay = resolve;
+            player.onerror = () => reject(new Error('Failed to load audio'));
             setTimeout(() => reject(new Error('Timeout loading audio')), 120000);
         });
         
         hideLoading();
-        audioPlayer.play();
+        player.play();
         state.isPlaying = true;
         updatePlayButton();
         updateMediaSession(track);
         
         // Detect audio format and update badge
-        updateFormatBadge(audioPlayer.src);
+        updateFormatBadge(player.src);
         
     } catch (error) {
         console.error('Playback error:', error);
@@ -1421,35 +1458,58 @@ function playPrevious() {
     }
 }
 
-audioPlayer.addEventListener('play', () => {
+// Shared event handlers for both audio players
+function handlePlay() {
     state.isPlaying = true;
     updatePlayButton();
     const track = state.queue[state.currentIndex];
     if (track) submitNowPlaying(track);
-});
+}
 
-audioPlayer.addEventListener('pause', () => {
-    state.isPlaying = false;
-    updatePlayButton();
-});
+function handlePause() {
+    // Only update if the active player paused
+    if (this === getActivePlayer()) {
+        state.isPlaying = false;
+        updatePlayButton();
+    }
+}
 
-audioPlayer.addEventListener('ended', playNext);
-
-audioPlayer.addEventListener('progress', () => {
-    if (audioPlayer.duration > 0 && audioPlayer.buffered.length > 0) {
+function handleProgress() {
+    const player = getActivePlayer();
+    if (player.duration > 0 && player.buffered.length > 0) {
         // Check if we have buffered enough to start next download
-        const bufferedEnd = audioPlayer.buffered.end(audioPlayer.buffered.length - 1);
-        if (bufferedEnd >= audioPlayer.duration - 15) { // 15 seconds before end or fully buffered
+        const bufferedEnd = player.buffered.end(player.buffered.length - 1);
+        if (bufferedEnd >= player.duration - 15) { // 15 seconds before end or fully buffered
              preloadNextTrack();
         }
     }
+}
+
+// Bind events to both players
+audioPlayer.addEventListener('play', handlePlay);
+audioPlayer2.addEventListener('play', handlePlay);
+audioPlayer.addEventListener('pause', handlePause);
+audioPlayer2.addEventListener('pause', handlePause);
+audioPlayer.addEventListener('progress', handleProgress);
+audioPlayer2.addEventListener('progress', handleProgress);
+
+// Ended fallback (in case crossfade didn't trigger)
+audioPlayer.addEventListener('ended', () => {
+    if (getActivePlayer() === audioPlayer) playNext();
+});
+audioPlayer2.addEventListener('ended', () => {
+    if (getActivePlayer() === audioPlayer2) playNext();
 });
 
-audioPlayer.addEventListener('timeupdate', () => {
-    if (audioPlayer.duration) {
-        currentTime.textContent = formatTime(audioPlayer.currentTime);
-        duration.textContent = formatTime(audioPlayer.duration);
-        progressBar.value = (audioPlayer.currentTime / audioPlayer.duration) * 100;
+audioPlayer.addEventListener('timeupdate', handleTimeUpdate);
+audioPlayer2.addEventListener('timeupdate', handleTimeUpdate);
+
+function handleTimeUpdate() {
+    const player = getActivePlayer();
+    if (player.duration) {
+        currentTime.textContent = formatTime(player.currentTime);
+        duration.textContent = formatTime(player.duration);
+        progressBar.value = (player.currentTime / player.duration) * 100;
         
         // Sync FS Progress
         fsCurrentTime.textContent = currentTime.textContent;
@@ -1458,16 +1518,52 @@ audioPlayer.addEventListener('timeupdate', () => {
         
         // Scrobble Check (50% or 4 mins)
         if (!state.scrobbledCurrent && state.queue[state.currentIndex]) {
-            if (audioPlayer.currentTime > 240 || audioPlayer.currentTime > audioPlayer.duration / 2) {
+            if (player.currentTime > 240 || player.currentTime > player.duration / 2) {
                 submitScrobble(state.queue[state.currentIndex]);
             }
         }
+        
+        // Crossfade/Gapless trigger: start transition before track ends
+        const timeRemaining = player.duration - player.currentTime;
+        const crossfadeTime = crossfadeEnabled ? CROSSFADE_DURATION / 1000 : 0.5;
+        
+        if (timeRemaining <= crossfadeTime && timeRemaining > 0 && preloadedPlayer && !crossfadeTimeout) {
+            if (state.currentIndex < state.queue.length - 1) {
+                // Mark that we're handling crossfade
+                crossfadeTimeout = setTimeout(() => {
+                    crossfadeTimeout = null;
+                }, crossfadeTime * 1000 + 500);
+                
+                // Advance to next track
+                state.currentIndex++;
+                state.scrobbledCurrent = false;
+                preloadedTrackId = null;
+                
+                // Update UI for new track
+                updatePlayerUI();
+                updateQueueUI();
+                
+                // Perform crossfade or gapless switch
+                if (crossfadeEnabled) {
+                    performCrossfade();
+                } else {
+                    performGaplessSwitch();
+                }
+                
+                // Update format badge
+                updateFormatBadge(getActivePlayer().src);
+                
+                // Preload the next one
+                setTimeout(preloadNextTrack, 1000);
+            }
+        }
     }
-});
+}
 
 progressBar.addEventListener('input', (e) => {
-    if (audioPlayer.duration) {
-        audioPlayer.currentTime = (e.target.value / 100) * audioPlayer.duration;
+    const player = getActivePlayer();
+    if (player.duration) {
+        player.currentTime = (e.target.value / 100) * player.duration;
     }
 });
 
@@ -1565,16 +1661,87 @@ function preloadNextTrack() {
     if (!nextTrack || nextTrack.id === preloadedTrackId) return;
     
     preloadedTrackId = nextTrack.id;
-    console.log('Preloading next track:', nextTrack.name);
+    console.log('Preloading next track into inactive player:', nextTrack.name);
     
     const query = `${nextTrack.name} ${nextTrack.artists}`;
     const hifiParam = state.hifiMode ? '&hifi=true' : '';
     const streamUrl = `/api/stream/${nextTrack.isrc || nextTrack.id}?q=${encodeURIComponent(query)}${hifiParam}`;
     
-    // Fetch to trigger backend cache and browser cache
-    fetch(streamUrl).then(res => {
-        if (res.ok) console.log('Preload started/cached');
-    }).catch(e => console.error('Preload failed', e));
+    // Load into the inactive player for gapless transition
+    const inactivePlayer = activePlayer === 1 ? audioPlayer2 : audioPlayer;
+    inactivePlayer.src = streamUrl;
+    inactivePlayer.load();
+    preloadedPlayer = inactivePlayer;
+    
+    console.log('Next track loaded into player', activePlayer === 1 ? 2 : 1);
+}
+
+// Get the currently active audio player
+function getActivePlayer() {
+    return activePlayer === 1 ? audioPlayer : audioPlayer2;
+}
+
+// Get the inactive audio player (for preloading)
+function getInactivePlayer() {
+    return activePlayer === 1 ? audioPlayer2 : audioPlayer;
+}
+
+// Perform crossfade between players
+function performCrossfade() {
+    const fadeOutGain = activePlayer === 1 ? gainNode1 : gainNode2;
+    const fadeInGain = activePlayer === 1 ? gainNode2 : gainNode1;
+    const newPlayer = getInactivePlayer();
+    
+    if (!audioContext || !fadeOutGain || !fadeInGain) return;
+    
+    const now = audioContext.currentTime;
+    const fadeDuration = CROSSFADE_DURATION / 1000;
+    
+    // Start playing the new track
+    newPlayer.play().catch(e => console.error('Crossfade play error:', e));
+    
+    // Crossfade: fade out current, fade in next
+    fadeOutGain.gain.setValueAtTime(1, now);
+    fadeOutGain.gain.linearRampToValueAtTime(0, now + fadeDuration);
+    
+    fadeInGain.gain.setValueAtTime(0, now);
+    fadeInGain.gain.linearRampToValueAtTime(1, now + fadeDuration);
+    
+    // Switch active player
+    activePlayer = activePlayer === 1 ? 2 : 1;
+    
+    // Pause old player after fade completes
+    setTimeout(() => {
+        const oldPlayer = getInactivePlayer();
+        oldPlayer.pause();
+        oldPlayer.currentTime = 0;
+    }, CROSSFADE_DURATION + 100);
+    
+    console.log('Crossfade to player', activePlayer);
+}
+
+// Instant gapless switch (no crossfade)
+function performGaplessSwitch() {
+    const newPlayer = getInactivePlayer();
+    const oldPlayer = getActivePlayer();
+    const fadeOutGain = activePlayer === 1 ? gainNode1 : gainNode2;
+    const fadeInGain = activePlayer === 1 ? gainNode2 : gainNode1;
+    
+    // Instant gain switch
+    if (fadeOutGain) fadeOutGain.gain.value = 0;
+    if (fadeInGain) fadeInGain.gain.value = 1;
+    
+    // Start new player
+    newPlayer.play().catch(e => console.error('Gapless play error:', e));
+    
+    // Stop old player
+    oldPlayer.pause();
+    oldPlayer.currentTime = 0;
+    
+    // Switch active player
+    activePlayer = activePlayer === 1 ? 2 : 1;
+    
+    console.log('Gapless switch to player', activePlayer);
 }
 
 // ========== MEDIA SESSION ==========
@@ -2108,6 +2275,9 @@ const volumeBoostVal = $('#volume-boost-val');
 // Audio context and nodes (created lazily)
 let audioContext = null;
 let sourceNode = null;
+let sourceNode2 = null;
+let gainNode1 = null; // Gain for player 1 (for crossfade)
+let gainNode2 = null; // Gain for player 2 (for crossfade)
 let eqFilters = [];
 let bassBoostFilter = null;
 let volumeBoostGain = null;
@@ -2135,7 +2305,16 @@ function initEqualizer() {
     
     try {
         audioContext = new (window.AudioContext || window.webkitAudioContext)();
+        
+        // Create source nodes for both audio players
         sourceNode = audioContext.createMediaElementSource(audioPlayer);
+        sourceNode2 = audioContext.createMediaElementSource(audioPlayer2);
+        
+        // Create gain nodes for crossfade control
+        gainNode1 = audioContext.createGain();
+        gainNode2 = audioContext.createGain();
+        gainNode1.gain.value = 1; // Player 1 starts active
+        gainNode2.gain.value = 0; // Player 2 starts silent
         
         // Create EQ filter nodes
         eqFilters = EQ_BANDS.map(band => {
@@ -2157,12 +2336,24 @@ function initEqualizer() {
         volumeBoostGain = audioContext.createGain();
         volumeBoostGain.gain.value = 1;
         
-        // Connect chain: source -> EQ filters -> bass boost -> volume boost -> destination
-        let lastNode = sourceNode;
-        eqFilters.forEach(filter => {
-            lastNode.connect(filter);
-            lastNode = filter;
-        });
+        // Connect chains:
+        // Player 1: source -> gain1 -> first EQ filter
+        // Player 2: source2 -> gain2 -> first EQ filter
+        // Then: EQ chain -> bass boost -> volume boost -> destination
+        sourceNode.connect(gainNode1);
+        sourceNode2.connect(gainNode2);
+        
+        // Both gains merge into first EQ filter
+        const firstFilter = eqFilters[0];
+        gainNode1.connect(firstFilter);
+        gainNode2.connect(firstFilter);
+        
+        // Connect EQ filter chain
+        let lastNode = firstFilter;
+        for (let i = 1; i < eqFilters.length; i++) {
+            lastNode.connect(eqFilters[i]);
+            lastNode = eqFilters[i];
+        }
         lastNode.connect(bassBoostFilter);
         bassBoostFilter.connect(volumeBoostGain);
         volumeBoostGain.connect(audioContext.destination);
@@ -2172,7 +2363,7 @@ function initEqualizer() {
         // Load saved settings
         loadEqSettings();
         
-        console.log('Equalizer initialized');
+        console.log('Equalizer initialized with crossfade support');
     } catch (e) {
         console.error('Failed to initialize equalizer:', e);
     }

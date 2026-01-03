@@ -470,18 +470,6 @@ async def stream_audio(
                 else:
                     logger.info(f"HiFi: Streaming from {stream_url[:60]}...")
                     
-                    # Stream proxy - forward audio chunks as they arrive
-                    async def stream_proxy():
-                        try:
-                            async with audio_service.client.stream("GET", stream_url, timeout=300.0) as response:
-                                if response.status_code == 200:
-                                    async for chunk in response.aiter_bytes(chunk_size=65536):
-                                        yield chunk
-                                else:
-                                    logger.error(f"HiFi: Stream failed with status {response.status_code}")
-                        except Exception as e:
-                            logger.error(f"HiFi: Stream proxy error: {e}")
-                    
                     # Detect content type from URL
                     content_type = "audio/flac"
                     format_name = "FLAC"
@@ -492,7 +480,7 @@ async def stream_audio(
                         content_type = "audio/mpeg"
                         format_name = "MP3"
                     
-                    # For HEAD requests, just return headers (for format detection)
+                    # Handle HEAD requests (format detection)
                     if request.method == "HEAD":
                         return Response(
                             content=b"",
@@ -504,14 +492,38 @@ async def stream_audio(
                             }
                         )
                     
+                    # Prepare headers for upstream request (forward Range if present)
+                    headers = {}
+                    range_header = request.headers.get("Range")
+                    if range_header:
+                        headers["Range"] = range_header
+                        logger.info(f"HiFi: Forwarding Range header: {range_header}")
+                        
+                    # Send request to Tidal
+                    req = audio_service.client.build_request("GET", stream_url, headers=headers)
+                    r = await audio_service.client.send(req, stream=True)
+                    
+                    # Prepare response headers
+                    resp_headers = {
+                        "Accept-Ranges": "bytes",
+                        "Cache-Control": "no-cache", 
+                        "X-Audio-Format": format_name
+                    }
+                    
+                    # Forward key headers from upstream
+                    for key in ["Content-Range", "Content-Length", "Content-Type"]:
+                        if key in r.headers:
+                            resp_headers[key] = r.headers[key]
+                            
+                    # Use BackgroundTask to close response after streaming
+                    from starlette.background import BackgroundTask
+                    
                     return StreamingResponse(
-                        stream_proxy(),
-                        media_type=content_type,
-                        headers={
-                            "Accept-Ranges": "bytes",
-                            "Cache-Control": "no-cache",
-                            "X-Audio-Format": format_name
-                        }
+                        r.aiter_bytes(chunk_size=65536),
+                        status_code=r.status_code,
+                        media_type=r.headers.get("Content-Type", content_type),
+                        headers=resp_headers,
+                        background=BackgroundTask(r.aclose)
                     )
             except Exception as e:
                 logger.error(f"HiFi: Error setting up stream proxy: {e}")

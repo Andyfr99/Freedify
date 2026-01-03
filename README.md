@@ -11,6 +11,9 @@ Stream music and podcasts from anywhere. Search songs, albums, artists, podcasts
 - **Fast Playback** - Audio starts in ~5 seconds (streams progressively, no transcode wait)
 - **Format Indicator** - Badge next to artist shows FLAC (green), AAC (green), or MP3 (grey)
 - **EQ Compatible** - Full equalizer support even with lossless streams
+- **Seek Support** - Instant seeking/skipping even while streaming HiFi
+- **Gapless Playback** - Seamless music transitions (default) with optional 2-second crossfade
+- **Music Discovery** - Click Artist name to search or Album name to view full tracklist instantly
 
 ### 🧠 AI & Smart Features - Needs Gemini API Key to work
 - **AI Radio** - Infinite queue recommendations based on your seed track (prevents genre drift)
@@ -54,8 +57,8 @@ Stream music and podcasts from anywhere. Search songs, albums, artists, podcasts
 ### 📋 Queue Management
 - **Drag to Reorder** - Drag tracks to rearrange
 - **Add All / Shuffle All** - From any album or playlist
-- **Smart Preloading** - Next track buffers automatically
-- **Click to Navigate** - Click track/artist name to search
+- **Smart Preloading** - Next track buffers automatically for gapless play
+- **Auto-Queue** - Click any track in an album/playlist to queue and play all following tracks automatically
 
 ### Playlists
 - **Add to Playlist** - Click the heart icon on any track to add it to a playlist
