@@ -24,7 +24,34 @@ const state = {
 const $ = (s) => document.querySelector(s);
 const $$ = (s) => document.querySelectorAll(s);
 
-// App.js v0101X
+
+// Global Event Delegation for Detail Tracks (Fixes click issues)
+document.addEventListener('click', (e) => {
+    // Check if click is inside detail-tracks
+    const trackItem = e.target.closest('#detail-tracks .track-item');
+    if (!trackItem) return;
+    
+    // Don't play if clicking buttons
+    if (e.target.closest('.download-btn') || e.target.closest('.delete-track-btn') || e.target.closest('.info-btn')) return;
+    
+    const index = parseInt(trackItem.dataset.index, 10);
+    if (isNaN(index)) return;
+    
+    // Auto-queue logic
+    const sourceTracks = (state.detailTracks && state.detailTracks.length > 0) ? state.detailTracks : [];
+    
+    if (sourceTracks.length === 0) return;
+    
+    const remainingTracks = sourceTracks.slice(index);
+    
+    state.queue = remainingTracks;
+    state.currentIndex = 0;
+    
+    showToast(`Queueing ${remainingTracks.length} tracks...`);
+    
+    updateQueueUI();
+    loadTrack(remainingTracks[0]);
+});
 
 const searchInput = $('#search-input');
 const searchClear = $('#search-clear');
@@ -841,31 +868,6 @@ function showDetailView(item, tracks) {
             </div>
         </div>
     `).join('');
-    
-    // Add click handlers for playing
-    // Use event delegation for better performance and reliability
-    detailTracks.onclick = (e) => {
-        const trackItem = e.target.closest('.track-item');
-        if (!trackItem) return;
-        
-        // Don't play if clicking buttons
-        if (e.target.closest('.download-btn') || e.target.closest('.delete-track-btn') || e.target.closest('.info-btn')) return;
-        
-        const index = parseInt(trackItem.dataset.index, 10);
-        if (isNaN(index)) return;
-        
-        // Auto-queue: queue all tracks from this position forward
-        // Use state.detailTracks to ensure we have the latest list
-        const sourceTracks = state.detailTracks || tracks;
-        const remainingTracks = sourceTracks.slice(index);
-        
-        console.log(`Auto-queueing ${remainingTracks.length} tracks starting from index ${index}`);
-        
-        state.queue = remainingTracks;
-        state.currentIndex = 0;
-        updateQueueUI();
-        loadTrack(remainingTracks[0]);
-    };
     
     // Show detail view
     detailView.classList.remove('hidden');
@@ -3941,4 +3943,34 @@ async function renderRecommendations() {
         console.error(e);
         showError('Failed to load recommendations');
     }
+}
+
+function showToast(message, duration = 3000) {
+    let toast = document.createElement('div');
+    toast.className = 'toast-notification';
+    toast.textContent = message;
+    Object.assign(toast.style, {
+        position: 'fixed',
+        bottom: '80px',
+        left: '50%',
+        transform: 'translateX(-50%)',
+        backgroundColor: 'var(--accent)',
+        color: 'white',
+        padding: '10px 20px',
+        borderRadius: '20px',
+        boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
+        zIndex: '10000',
+        opacity: '0',
+        transition: 'opacity 0.3s',
+        pointerEvents: 'none'
+    });
+    document.body.appendChild(toast);
+    
+    // Animate in
+    requestAnimationFrame(() => toast.style.opacity = '1');
+    
+    setTimeout(() => {
+        toast.style.opacity = '0';
+        setTimeout(() => toast.remove(), 300);
+    }, duration);
 }
