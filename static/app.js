@@ -47,6 +47,7 @@ document.addEventListener('click', (e) => {
     if (sourceTracks.length === 0) return;
     
     const remainingTracks = sourceTracks.slice(index);
+    const clickedTrack = remainingTracks[0];
     
     state.queue = remainingTracks;
     state.currentIndex = 0;
@@ -54,7 +55,20 @@ document.addEventListener('click', (e) => {
     showToast(`Queueing ${remainingTracks.length} tracks...`);
     
     updateQueueUI();
-    loadTrack(remainingTracks[0]);
+    
+    // Check if this track is already preloaded - use it instantly!
+    if (preloadedTrackId === clickedTrack.id && preloadedReady && preloadedPlayer) {
+        console.log('Using preloaded track (detail click):', clickedTrack.name);
+        preloadedTrackId = null;
+        preloadedReady = false;
+        updatePlayerUI();
+        updateFullscreenUI(clickedTrack);
+        performGaplessSwitch();
+        updateFormatBadge(getActivePlayer().src);
+        setTimeout(preloadNextTrack, 500);
+    } else {
+        loadTrack(clickedTrack);
+    }
 });
 
 const searchInput = $('#search-input');
@@ -118,6 +132,7 @@ let crossfadeEnabled = localStorage.getItem('freedify_crossfade') === 'true';
 const CROSSFADE_DURATION = 2000; // 2 seconds
 let crossfadeTimeout = null;
 let preloadedPlayer = null; // Ready player with next track loaded
+let preloadedReady = false; // True when preloaded track has fired canplaythrough
 
 // Volume Controls
 const volumeSlider = $('#volume-slider');
@@ -1017,11 +1032,11 @@ document.addEventListener('keydown', (e) => {
             togglePlay();
             break;
         case 'ArrowRight':
-            if (e.shiftKey) audioPlayer.currentTime += 10;
+            if (e.shiftKey) getActivePlayer().currentTime += 10;
             else playNext();
             break;
         case 'ArrowLeft':
-            if (e.shiftKey) audioPlayer.currentTime -= 10;
+            if (e.shiftKey) getActivePlayer().currentTime -= 10;
             else playPrevious();
             break;
         case 'Escape':
@@ -1221,6 +1236,30 @@ function playTrack(track) {
     }
     
     updateQueueUI();
+    
+    // Check if this track is already preloaded and ready - use it directly!
+    if (preloadedTrackId === track.id && preloadedReady && preloadedPlayer) {
+        console.log('Using preloaded track:', track.name);
+        
+        // Reset preload state
+        preloadedTrackId = null;
+        preloadedReady = false;
+        
+        // Update all UI
+        updatePlayerUI();
+        updateFullscreenUI(track);
+        
+        // Switch to preloaded player
+        performGaplessSwitch();
+        
+        // Update format badge
+        updateFormatBadge(getActivePlayer().src);
+        
+        // Preload the next one
+        setTimeout(preloadNextTrack, 500);
+        return;
+    }
+    
     loadTrack(track);
 }
 
@@ -1345,7 +1384,18 @@ if (playerAlbum) {
     });
 }
 
+// Track load state to prevent duplicates
+let loadInProgress = false;
+let loadTimeoutId = null;
+
 async function loadTrack(track) {
+    // Prevent duplicate loads
+    if (loadInProgress) {
+        console.log('Load already in progress, skipping duplicate load for:', track.name);
+        return;
+    }
+    
+    loadInProgress = true;
     showLoading(`Loading "${track.name}"...`);
     state.scrobbledCurrent = false; // Reset scrobble status
     playerBar.classList.remove('hidden');
@@ -1356,6 +1406,12 @@ async function loadTrack(track) {
     if (crossfadeTimeout) {
         clearTimeout(crossfadeTimeout);
         crossfadeTimeout = null;
+    }
+    
+    // Clear any existing load timeout
+    if (loadTimeoutId) {
+        clearTimeout(loadTimeoutId);
+        loadTimeoutId = null;
     }
     
     updatePlayerUI();
@@ -1381,9 +1437,27 @@ async function loadTrack(track) {
         player.load();
         
         await new Promise((resolve, reject) => {
-            player.oncanplay = resolve;
-            player.onerror = () => reject(new Error('Failed to load audio'));
-            setTimeout(() => reject(new Error('Timeout loading audio')), 120000);
+            const cleanup = () => {
+                player.oncanplay = null;
+                player.onerror = null;
+                if (loadTimeoutId) {
+                    clearTimeout(loadTimeoutId);
+                    loadTimeoutId = null;
+                }
+            };
+            
+            player.oncanplay = () => {
+                cleanup();
+                resolve();
+            };
+            player.onerror = () => {
+                cleanup();
+                reject(new Error('Failed to load audio'));
+            };
+            loadTimeoutId = setTimeout(() => {
+                cleanup();
+                reject(new Error('Timeout loading audio'));
+            }, 120000);
         });
         
         hideLoading();
@@ -1398,6 +1472,8 @@ async function loadTrack(track) {
     } catch (error) {
         console.error('Playback error:', error);
         showError('Failed to load track. Please try again.');
+    } finally {
+        loadInProgress = false;
     }
 }
 
@@ -1435,35 +1511,53 @@ shuffleQueueBtn.addEventListener('click', () => {
 });
 
 function togglePlay() {
-    if (audioPlayer.paused) {
-        audioPlayer.play();
+    const player = getActivePlayer();
+    if (player.paused) {
+        player.play();
     } else {
-        audioPlayer.pause();
+        player.pause();
     }
 }
 
 function playNext() {
     const currentTrack = state.queue[state.currentIndex];
+    const player = getActivePlayer();
     // Podcast: seek +15s instead of next track
     if (currentTrack && currentTrack.source === 'podcast') {
-        audioPlayer.currentTime = Math.min(audioPlayer.duration || 0, audioPlayer.currentTime + 15);
+        player.currentTime = Math.min(player.duration || 0, player.currentTime + 15);
         return;
     }
     if (state.currentIndex < state.queue.length - 1) {
         state.currentIndex++;
-        loadTrack(state.queue[state.currentIndex]);
+        
+        // Try to use preloaded player (no loading screen)
+        if (preloadedPlayer && preloadedTrackId === state.queue[state.currentIndex]?.id) {
+            console.log('playNext: Using preloaded player for:', state.queue[state.currentIndex].name);
+            preloadedTrackId = null;
+            preloadedReady = false;
+            updatePlayerUI();
+            updateQueueUI();
+            updateFullscreenUI(state.queue[state.currentIndex]);
+            performGaplessSwitch();
+            updateFormatBadge(getActivePlayer().src);
+            updateMediaSession(state.queue[state.currentIndex]);
+            setTimeout(preloadNextTrack, 500);
+        } else {
+            loadTrack(state.queue[state.currentIndex]);
+        }
     }
 }
 
 function playPrevious() {
     const currentTrack = state.queue[state.currentIndex];
+    const player = getActivePlayer();
     // Podcast: seek -15s instead of prev track
     if (currentTrack && currentTrack.source === 'podcast') {
-        audioPlayer.currentTime = Math.max(0, audioPlayer.currentTime - 15);
+        player.currentTime = Math.max(0, player.currentTime - 15);
         return;
     }
-    if (audioPlayer.currentTime > 3) {
-        audioPlayer.currentTime = 0;
+    if (player.currentTime > 3) {
+        player.currentTime = 0;
     } else if (state.currentIndex > 0) {
         state.currentIndex--;
         loadTrack(state.queue[state.currentIndex]);
@@ -1491,7 +1585,7 @@ function handleProgress() {
     if (player.duration > 0 && player.buffered.length > 0) {
         // Check if we have buffered enough to start next download
         const bufferedEnd = player.buffered.end(player.buffered.length - 1);
-        if (bufferedEnd >= player.duration - 15) { // 15 seconds before end or fully buffered
+        if (bufferedEnd >= player.duration - 60) { // 60 seconds before end (for long songs)
              preloadNextTrack();
         }
     }
@@ -1505,11 +1599,11 @@ audioPlayer2.addEventListener('pause', handlePause);
 audioPlayer.addEventListener('progress', handleProgress);
 audioPlayer2.addEventListener('progress', handleProgress);
 
-// Ended fallback (in case crossfade didn't trigger)
-audioPlayer.addEventListener('ended', () => {
-    if (getActivePlayer() === audioPlayer) playNext();
-});
+// Ended fallback for audioPlayer2 only (audioPlayer uses playNextWithRepeat instead)
+// Note: audioPlayer's ended handler is added later as playNextWithRepeat
 audioPlayer2.addEventListener('ended', () => {
+    // Skip if gapless already handled this transition
+    if (crossfadeTimeout) return;
     if (getActivePlayer() === audioPlayer2) playNext();
 });
 
@@ -1538,10 +1632,17 @@ function handleTimeUpdate() {
             }
         }
         
-        // Crossfade/Gapless trigger: start transition before track ends
+        // Time-based preload trigger (1 minute before end - better for long songs)
         const timeRemaining = player.duration - player.currentTime;
-        const crossfadeTime = crossfadeEnabled ? CROSSFADE_DURATION / 1000 : 0.5;
+        if (timeRemaining <= 60 && timeRemaining > 0 && !preloadedTrackId) {
+            preloadNextTrack();
+        }
         
+        // Crossfade/Gapless trigger: start transition before track ends
+        // Using 200ms buffer - try to use preloaded player even if not flagged "ready"
+        const crossfadeTime = crossfadeEnabled ? CROSSFADE_DURATION / 1000 : 0.2;
+        
+        // Trigger if preloaded player exists (don't strictly require preloadedReady - streaming can start anyway)
         if (timeRemaining <= crossfadeTime && timeRemaining > 0 && preloadedPlayer && !crossfadeTimeout) {
             if (state.currentIndex < state.queue.length - 1) {
                 // Mark that we're handling crossfade
@@ -1553,10 +1654,12 @@ function handleTimeUpdate() {
                 state.currentIndex++;
                 state.scrobbledCurrent = false;
                 preloadedTrackId = null;
+                preloadedReady = false; // Reset ready flag
                 
                 // Update UI for new track
                 updatePlayerUI();
                 updateQueueUI();
+                updateFullscreenUI(state.queue[state.currentIndex]); // Sync fullscreen UI
                 
                 // Perform crossfade or gapless switch
                 if (crossfadeEnabled) {
@@ -1569,7 +1672,7 @@ function handleTimeUpdate() {
                 updateFormatBadge(getActivePlayer().src);
                 
                 // Preload the next one
-                setTimeout(preloadNextTrack, 1000);
+                setTimeout(preloadNextTrack, 500);
             }
         }
     }
@@ -1676,6 +1779,7 @@ function preloadNextTrack() {
     if (!nextTrack || nextTrack.id === preloadedTrackId) return;
     
     preloadedTrackId = nextTrack.id;
+    preloadedReady = false; // Reset ready flag
     console.log('Preloading next track into inactive player:', nextTrack.name);
     
     const query = `${nextTrack.name} ${nextTrack.artists}`;
@@ -1684,11 +1788,21 @@ function preloadNextTrack() {
     
     // Load into the inactive player for gapless transition
     const inactivePlayer = activePlayer === 1 ? audioPlayer2 : audioPlayer;
+    
+    // Set up canplay listener for faster ready detection
+    // canplay fires when enough data is available to start (faster than canplaythrough)
+    const onReady = () => {
+        preloadedReady = true;
+        console.log('Preloaded track ready (canplay):', nextTrack.name);
+        inactivePlayer.removeEventListener('canplay', onReady);
+    };
+    inactivePlayer.addEventListener('canplay', onReady);
+    
     inactivePlayer.src = streamUrl;
     inactivePlayer.load();
     preloadedPlayer = inactivePlayer;
     
-    console.log('Next track loaded into player', activePlayer === 1 ? 2 : 1);
+    console.log('Next track loading into player', activePlayer === 1 ? 2 : 1);
 }
 
 // Get the currently active audio player
@@ -1742,14 +1856,14 @@ function performGaplessSwitch() {
     const fadeOutGain = activePlayer === 1 ? gainNode1 : gainNode2;
     const fadeInGain = activePlayer === 1 ? gainNode2 : gainNode1;
     
-    // Instant gain switch
+    // Ensure gains are set correctly
     if (fadeOutGain) fadeOutGain.gain.value = 0;
     if (fadeInGain) fadeInGain.gain.value = 1;
     
     // Start new player
     newPlayer.play().catch(e => console.error('Gapless play error:', e));
     
-    // Stop old player
+    // Stop old player immediately
     oldPlayer.pause();
     oldPlayer.currentTime = 0;
     
@@ -1791,8 +1905,8 @@ function updateMediaSession(track) {
             artwork: track.album_art ? [{ src: track.album_art, sizes: '512x512' }] : []
         });
         
-        navigator.mediaSession.setActionHandler('play', () => audioPlayer.play());
-        navigator.mediaSession.setActionHandler('pause', () => audioPlayer.pause());
+        navigator.mediaSession.setActionHandler('play', () => getActivePlayer().play());
+        navigator.mediaSession.setActionHandler('pause', () => getActivePlayer().pause());
         navigator.mediaSession.setActionHandler('previoustrack', playPrevious);
         navigator.mediaSession.setActionHandler('nexttrack', playNext);
     }
@@ -1853,11 +1967,11 @@ document.addEventListener('keydown', (e) => {
             togglePlay();
             break;
         case 'ArrowRight':
-            if (e.shiftKey) audioPlayer.currentTime += 10;
+            if (e.shiftKey) getActivePlayer().currentTime += 10;
             else playNext();
             break;
         case 'ArrowLeft':
-            if (e.shiftKey) audioPlayer.currentTime -= 10;
+            if (e.shiftKey) getActivePlayer().currentTime -= 10;
             else playPrevious();
             break;
     }
@@ -1878,7 +1992,7 @@ window.removeFromQueue = function(index) {
         // Removing currently playing
         state.queue.splice(index, 1);
         if (state.queue.length === 0) {
-            audioPlayer.pause();
+            getActivePlayer().pause();
             state.isPlaying = false;
             updatePlayButton();
             state.currentIndex = -1;
@@ -1969,8 +2083,9 @@ const fsHeartBtn = $('#fs-heart-btn');
 if (fsPrevBtn) {
     fsPrevBtn.addEventListener('click', () => {
         const currentTrack = state.queue[state.currentIndex];
+        const player = getActivePlayer();
         if (currentTrack && currentTrack.source === 'podcast') {
-            audioPlayer.currentTime = Math.max(0, audioPlayer.currentTime - 15);
+            player.currentTime = Math.max(0, player.currentTime - 15);
         } else {
             prevBtn.click();
         }
@@ -1979,8 +2094,9 @@ if (fsPrevBtn) {
 if (fsNextBtn) {
     fsNextBtn.addEventListener('click', () => {
         const currentTrack = state.queue[state.currentIndex];
+        const player = getActivePlayer();
         if (currentTrack && currentTrack.source === 'podcast') {
-            audioPlayer.currentTime = Math.min(audioPlayer.duration, audioPlayer.currentTime + 15);
+            player.currentTime = Math.min(player.duration, player.currentTime + 15);
         } else {
             nextBtn.click();
         }
@@ -2022,8 +2138,9 @@ if (fsNextBtn) fsNextBtn.addEventListener('click', () => nextBtn.click());
 
 if (fsProgressBar) {
     fsProgressBar.addEventListener('input', (e) => {
-        if (audioPlayer.duration) {
-            audioPlayer.currentTime = (e.target.value / 100) * audioPlayer.duration;
+        const player = getActivePlayer();
+        if (player.duration) {
+            player.currentTime = (e.target.value / 100) * player.duration;
         }
     });
 }
@@ -2131,15 +2248,34 @@ repeatBtn.addEventListener('click', () => {
 // Override playNext for repeat handling
 const originalPlayNext = playNext;
 window.playNextWithRepeat = function() {
+    // Skip if gapless already handled this transition
+    if (crossfadeTimeout) return;
+    
+    const player = getActivePlayer();
     if (state.repeatMode === 'one') {
-        audioPlayer.currentTime = 0;
-        audioPlayer.play();
+        player.currentTime = 0;
+        player.play();
         return;
     }
     
     if (state.currentIndex < state.queue.length - 1) {
         state.currentIndex++;
-        loadTrack(state.queue[state.currentIndex]);
+        
+        // Try to use preloaded player (no loading screen)
+        if (preloadedPlayer && preloadedTrackId === state.queue[state.currentIndex]?.id) {
+            console.log('playNextWithRepeat: Using preloaded player for:', state.queue[state.currentIndex].name);
+            preloadedTrackId = null;
+            preloadedReady = false;
+            updatePlayerUI();
+            updateQueueUI();
+            updateFullscreenUI(state.queue[state.currentIndex]);
+            performGaplessSwitch();
+            updateFormatBadge(getActivePlayer().src);
+            updateMediaSession(state.queue[state.currentIndex]);
+            setTimeout(preloadNextTrack, 500);
+        } else {
+            loadTrack(state.queue[state.currentIndex]);
+        }
     } else if (state.repeatMode === 'all' && state.queue.length > 0) {
         state.currentIndex = 0;
         loadTrack(state.queue[0]);
@@ -2166,33 +2302,29 @@ document.addEventListener('keydown', (e) => {
             break;
         case 'ArrowRight':
             if (e.shiftKey) {
-                audioPlayer.currentTime = Math.min(audioPlayer.duration, audioPlayer.currentTime + 10);
+                const player = getActivePlayer();
+                player.currentTime = Math.min(player.duration, player.currentTime + 10);
             } else {
                 playNext();
             }
             break;
         case 'ArrowLeft':
             if (e.shiftKey) {
-                audioPlayer.currentTime = Math.max(0, audioPlayer.currentTime - 10);
+                const player = getActivePlayer();
+                player.currentTime = Math.max(0, player.currentTime - 10);
             } else {
                 playPrevious();
             }
             break;
         case 'ArrowUp':
             e.preventDefault();
-            audioPlayer.volume = Math.min(1, audioPlayer.volume + 0.1);
-            volumeSlider.value = audioPlayer.volume * 100;
-            state.volume = audioPlayer.volume;
-            updateMuteIcon();
-            showToast(`Volume: ${Math.round(audioPlayer.volume * 100)}%`);
+            updateVolume(Math.min(1, state.volume + 0.1));
+            showToast(`Volume: ${Math.round(state.volume * 100)}%`);
             break;
         case 'ArrowDown':
             e.preventDefault();
-            audioPlayer.volume = Math.max(0, audioPlayer.volume - 0.1);
-            volumeSlider.value = audioPlayer.volume * 100;
-            state.volume = audioPlayer.volume;
-            updateMuteIcon();
-            showToast(`Volume: ${Math.round(audioPlayer.volume * 100)}%`);
+            updateVolume(Math.max(0, state.volume - 0.1));
+            showToast(`Volume: ${Math.round(state.volume * 100)}%`);
             break;
         case 'm':
         case 'M':
@@ -2604,11 +2736,11 @@ function updateMediaSession(track) {
 // Set up Media Session action handlers
 if ('mediaSession' in navigator) {
     navigator.mediaSession.setActionHandler('play', () => {
-        audioPlayer.play();
+        getActivePlayer().play();
     });
     
     navigator.mediaSession.setActionHandler('pause', () => {
-        audioPlayer.pause();
+        getActivePlayer().pause();
     });
     
     navigator.mediaSession.setActionHandler('previoustrack', () => {
@@ -2620,18 +2752,21 @@ if ('mediaSession' in navigator) {
     });
     
     navigator.mediaSession.setActionHandler('seekbackward', (details) => {
-        audioPlayer.currentTime = Math.max(audioPlayer.currentTime - (details.seekOffset || 10), 0);
+        const player = getActivePlayer();
+        player.currentTime = Math.max(player.currentTime - (details.seekOffset || 10), 0);
     });
     
     navigator.mediaSession.setActionHandler('seekforward', (details) => {
-        audioPlayer.currentTime = Math.min(audioPlayer.currentTime + (details.seekOffset || 10), audioPlayer.duration);
+        const player = getActivePlayer();
+        player.currentTime = Math.min(player.currentTime + (details.seekOffset || 10), player.duration);
     });
     
     navigator.mediaSession.setActionHandler('seekto', (details) => {
-        if (details.fastSeek && 'fastSeek' in audioPlayer) {
-            audioPlayer.fastSeek(details.seekTime);
+        const player = getActivePlayer();
+        if (details.fastSeek && 'fastSeek' in player) {
+            player.fastSeek(details.seekTime);
         } else {
-            audioPlayer.currentTime = details.seekTime;
+            player.currentTime = details.seekTime;
         }
     });
 }

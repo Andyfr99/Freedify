@@ -604,7 +604,50 @@ class AudioService:
     async def fetch_flac(self, isrc: str, query: str = "") -> Optional[tuple[bytes, Dict]]:
         """Fetch FLAC audio and metadata from Tidal or Deezer (with fallback)."""
         
-        # Try Tidal first
+        # Handle Deezer track IDs directly (dz_XXXXX format)
+        if isrc.startswith("dz_"):
+            deezer_track_id = isrc.replace("dz_", "")
+            logger.info(f"Deezer track ID detected: {deezer_track_id}")
+            
+            try:
+                # Fetch track info directly by Deezer ID
+                response = await self.client.get(
+                    f"https://api.deezer.com/track/{deezer_track_id}"
+                )
+                if response.status_code == 200:
+                    deezer_info = response.json()
+                    if "error" not in deezer_info:
+                        download_url = await self.get_deezer_download_url(int(deezer_track_id))
+                        
+                        if download_url:
+                            logger.info(f"Downloading from Deezer (direct ID)...")
+                            dl_response = await self.client.get(download_url, timeout=180.0)
+                            if dl_response.status_code == 200:
+                                logger.info(f"Downloaded {len(dl_response.content) / 1024 / 1024:.2f} MB from Deezer")
+                                
+                                meta = {
+                                    "title": deezer_info.get("title"),
+                                    "artists": [a["name"] for a in deezer_info.get("contributors", [])] or [deezer_info.get("artist", {}).get("name")],
+                                    "album": deezer_info.get("album", {}).get("title"),
+                                    "year": deezer_info.get("release_date"),
+                                    "track_number": deezer_info.get("track_position"),
+                                }
+                                cover_url = deezer_info.get("album", {}).get("cover_xl")
+                                if cover_url:
+                                    try:
+                                        cover_resp = await self.client.get(cover_url)
+                                        if cover_resp.status_code == 200:
+                                            meta["album_art_data"] = cover_resp.content
+                                    except: pass
+                                
+                                return (dl_response.content, meta)
+            except Exception as e:
+                logger.error(f"Deezer direct ID fetch error: {e}")
+            
+            logger.error(f"Could not fetch audio for Deezer ID: {isrc}")
+            return None
+        
+        # Try Tidal first for regular ISRCs
         logger.info(f"Trying Tidal for ISRC: {isrc}")
         tidal_track = await self.search_tidal_by_isrc(isrc, query)
         
