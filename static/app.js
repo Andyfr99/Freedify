@@ -21,9 +21,13 @@ const state = {
 };
 
 // ========== DOM ELEMENTS ==========
-const $ = (s) => document.querySelector(s);
-const $$ = (s) => document.querySelectorAll(s);
+// App.js v0104C
+console.log("Freedify v0104C Loaded - Mini Player Marquee");
 
+
+// Helper for multiple selectors (Fix for ReferenceError: $$ is not defined)
+const $ = (selector) => document.querySelector(selector);
+const $$ = (selector) => document.querySelectorAll(selector);
 
 // Global Event Delegation for Detail Tracks (Fixes click issues)
 document.addEventListener('click', (e) => {
@@ -105,6 +109,8 @@ const currentTime = $('#current-time');
 const duration = $('#duration');
 const audioPlayer = $('#audio-player');
 const audioPlayer2 = $('#audio-player-2');
+const miniPlayerBtn = $('#mini-player-btn');
+let pipWindow = null;
 
 // Crossfade / Gapless state
 let activePlayer = 1; // 1 or 2, which player is currently active
@@ -1267,6 +1273,9 @@ function updatePlayerUI() {
     } else if (playerDJInfo) {
         playerDJInfo.classList.add('hidden');
     }
+    
+    // Update Mini Player
+    if (pipWindow) updateMiniPlayer();
 }
 
 // Update audio format badge (FLAC/MP3)
@@ -1395,6 +1404,7 @@ async function loadTrack(track) {
 // Player controls
 playBtn.addEventListener('click', togglePlay);
 prevBtn.addEventListener('click', playPrevious);
+if (miniPlayerBtn) miniPlayerBtn.addEventListener('click', toggleMiniPlayer);
 nextBtn.addEventListener('click', playNext);
 
 // Shuffle current queue
@@ -1507,6 +1517,9 @@ audioPlayer.addEventListener('timeupdate', handleTimeUpdate);
 audioPlayer2.addEventListener('timeupdate', handleTimeUpdate);
 
 function handleTimeUpdate() {
+    // Update Mini Player Time
+    if (pipWindow) updateMiniPlayer();
+
     const player = getActivePlayer();
     if (player.duration) {
         currentTime.textContent = formatTime(player.currentTime);
@@ -2045,12 +2058,31 @@ function showToast(message) {
 }
 
 // ========== VOLUME CONTROL ==========
-volumeSlider.addEventListener('input', (e) => {
-    const vol = e.target.value / 100;
-    audioPlayer.volume = vol;
+// Shared volume update function
+function updateVolume(vol) {
+    if (vol < 0) vol = 0;
+    if (vol > 1) vol = 1;
+    
     state.volume = vol;
+    audioPlayer.volume = vol;
+    audioPlayer2.volume = vol; // Apply to both players
     state.muted = vol === 0;
+    
+    // Update main slider UI if needed
+    const sliderVal = Math.round(vol * 100);
+    if (volumeSlider.value != sliderVal) volumeSlider.value = sliderVal;
+    
+    // Update PiP slider if exists
+    if (pipWindow) {
+         const waVol = pipWindow.document.getElementById('wa-vol');
+         if (waVol && waVol.value != sliderVal) waVol.value = sliderVal;
+    }
+    
     updateMuteIcon();
+}
+
+volumeSlider.addEventListener('input', (e) => {
+    updateVolume(e.target.value / 100);
 });
 
 muteBtn.addEventListener('click', () => {
@@ -3973,4 +4005,161 @@ function showToast(message, duration = 3000) {
         toast.style.opacity = '0';
         setTimeout(() => toast.remove(), 300);
     }, duration);
+}
+
+// ==================== WINAMP MINI PLAYER ====================
+async function toggleMiniPlayer() {
+    if (!('documentPictureInPicture' in window)) {
+        showError('Mini Player not supported in this browser (Chrome/Edge 116+ required)');
+        return;
+    }
+    
+    if (pipWindow) {
+        pipWindow.close();
+        pipWindow = null;
+        return;
+    }
+    
+    try {
+        pipWindow = await documentPictureInPicture.requestWindow({
+            width: 320,
+            height: 160,
+        });
+        
+        // Copy Styles
+        [...document.styleSheets].forEach((styleSheet) => {
+            try {
+                const cssRules = [...styleSheet.cssRules].map((rule) => rule.cssText).join('');
+                const style = document.createElement('style');
+                style.textContent = cssRules;
+                pipWindow.document.head.appendChild(style);
+            } catch (e) {
+                // Ignore CORS errors for external sheets
+                const link = document.createElement('link');
+                link.rel = 'stylesheet';
+                link.type = styleSheet.type;
+                link.media = styleSheet.media;
+                link.href = styleSheet.href;
+                pipWindow.document.head.appendChild(link);
+            }
+        });
+        
+        // Render Winamp HTML
+        updateMiniPlayerDOM();
+        
+        // Bind Controls
+        const doc = pipWindow.document;
+        doc.getElementById('wa-prev').onclick = () => playPrevious();
+        doc.getElementById('wa-play').onclick = () => {
+             const p = getActivePlayer();
+             if (p.paused) p.play(); else p.pause();
+             updateMiniPlayer(); // Immediate update
+        };
+        doc.getElementById('wa-pause').onclick = () => getActivePlayer().pause();
+        doc.getElementById('wa-next').onclick = () => playNext();
+        doc.getElementById('wa-vol').oninput = (e) => {
+            const val = e.target.value / 100;
+            updateVolume(val); // Syncs main slider too
+        };
+        
+        // Force initial update
+        updateMiniPlayer();
+        
+        // Handle Close
+        pipWindow.addEventListener('pagehide', () => {
+            pipWindow = null;
+        });
+        
+    } catch (err) {
+        console.error('Failed to open Mini Player:', err);
+    }
+}
+
+function updateMiniPlayerDOM() {
+    if (!pipWindow) return;
+    const doc = pipWindow.document;
+    
+    // If body is empty, inject structure
+    if (!doc.body.children.length) {
+        doc.body.className = 'winamp-body';
+        doc.body.innerHTML = `
+        <div class="winamp-player">
+            <div class="winamp-titlebar">
+                <div style="width:10px; height:10px; background:#fff; margin-right:4px; clip-path: polygon(50% 0, 0 100%, 100% 100%);"></div>
+                <span class="winamp-titlebar-text">FREEDIFY</span>
+                <span style="flex:1"></span>
+                <div style="background:#808080; width:8px; height:8px; border:1px solid #fff; cursor:pointer;" onclick="window.close()"></div>
+            </div>
+            <div class="winamp-main">
+                <div class="winamp-art">
+                     <img id="wa-art" src="" />
+                </div>
+                <div class="winamp-content">
+                    <div class="winamp-display">
+                        <div id="wa-time" class="winamp-time">00:00</div>
+                        <div id="wa-marquee" class="winamp-marquee"><span>Ready to Llama...</span></div>
+                        <div class="winamp-info-line">
+                             <span id="wa-format" style="color:#00e000; font-weight:bold;">MP3</span>
+                             <span id="wa-state" style="margin-left:8px;">STOP</span>
+                        </div>
+                    </div>
+                    <div class="winamp-controls">
+                        <div class="winamp-btn" id="wa-prev" title="Prev"><svg viewBox="0 0 24 24"><path d="M6 6h2v12H6zm3.5 6l8.5 6V6z"/></svg></div>
+                        <div class="winamp-btn" id="wa-play" title="Play"><svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg></div>
+                        <div class="winamp-btn" id="wa-pause" title="Pause"><svg viewBox="0 0 24 24"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg></div>
+                        <div class="winamp-btn" id="wa-next" title="Next"><svg viewBox="0 0 24 24"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg></div>
+                        <input type="range" class="winamp-slider" id="wa-vol" min="0" max="100" value="${state.volume * 100}">
+                    </div>
+                </div>
+            </div>
+        </div>
+        `;
+    }
+}
+
+function updateMiniPlayer() {
+    if (!pipWindow) return;
+    const doc = pipWindow.document;
+    const player = getActivePlayer();
+    
+    // Time
+    const cur = player.currentTime || 0;
+    const mins = Math.floor(cur / 60);
+    const secs = Math.floor(cur % 60);
+    const timeStr = `${mins.toString().padStart(2,'0')}:${secs.toString().padStart(2,'0')}`;
+    const timeEl = doc.getElementById('wa-time');
+    if (timeEl && timeEl.textContent !== timeStr) timeEl.textContent = timeStr;
+    
+    // Metadata (Title - Artist)
+    const title = $('#player-title').textContent;
+    const artist = $('#player-artist').textContent;
+    const text = `${artist} - ${title}`;
+    const marquee = doc.getElementById('wa-marquee');
+    if (marquee) {
+        // Update span content or create one if missing
+        let span = marquee.querySelector('span');
+        if (!span) {
+            span = doc.createElement('span');
+            marquee.appendChild(span);
+        }
+        if (span.textContent !== text) span.textContent = text;
+    }
+    
+    // State (Play/Pause/Stop)
+    const stateEl = doc.getElementById('wa-state');
+    const newState = player.paused ? 'PAUSE' : 'PLAY';
+    if (stateEl && stateEl.textContent !== newState) stateEl.textContent = newState;
+    
+    // Art
+    const mainArt = $('#player-art');
+    const waArt = doc.getElementById('wa-art');
+    if (waArt && mainArt && waArt.src !== mainArt.src) waArt.src = mainArt.src;
+    
+    // Format
+    const badge = $('#audio-format-badge');
+    const waFormat = doc.getElementById('wa-format');
+    if (waFormat && badge) {
+        waFormat.textContent = badge.textContent || 'MP3';
+        waFormat.style.color = (badge.textContent === 'HiFi' || badge.textContent === 'FLAC') ? '#00e000' : '#c0c000';
+    }
 }
