@@ -1,6 +1,6 @@
 # Freedify - Music Streaming Web App
 
-*Last updated: January 3, 2026*
+*Last updated: January 5, 2026*
 
 Stream music and podcasts from anywhere. Search songs, albums, artists, podcasts or paste URLs from Spotify, SoundCloud, Bandcamp, Archive.org, Phish.in, and more.
 
@@ -9,11 +9,16 @@ Stream music and podcasts from anywhere. Search songs, albums, artists, podcasts
 ### 🎧 HiFi & Hi-Res Streaming
 - **Lossless FLAC** - Direct 16-bit FLAC streaming from Tidal (HiFi)
 - **Hi-Res Audio** - **24-bit/96kHz** support powered by **Dab Music** (Qobuz Proxy)
+- **Hi-Res Mode Toggle** - Click the HiFi button to switch between:
+  - **Hi-Res Mode** (Cyan) - Prioritizes 24-bit lossless when available
+  - **HiFi Mode** (Green) - Standard 16-bit lossless streaming
+- **HI-RES Album Badge** - Cyan "HI-RES" sticker on album cards indicates 24-bit availability
+- **Audio Quality Display** - Album modal shows actual bit depth (e.g., "24bit / 96kHz")
 - **Direct Stream** - No more MP3 transcoding! Fast, pure lossless audio.
 - **Fast Playback** - Audio starts in ~5 seconds (streams progressively, no transcode wait)
-- **Format Indicator** - Badge next to artist shows FLAC (green), AAC (green), or MP3 (grey)
+- **Format Indicator** - Badge next to artist shows FLAC (green/cyan), AAC (green), or MP3 (grey)
 - **EQ Compatible** - Full equalizer support even with lossless streams
-- **Seek Support** - Instant seeking/skipping even while streaming HiFi
+- **Seek Support** - Instant seeking/skipping even while streaming Hi-Res
 - **Gapless Playback** - Seamless music transitions (default) with optional 1-second crossfade
 - **Music Discovery** - Click Artist name to search or Album name to view full tracklist instantly
 
@@ -156,6 +161,8 @@ When deploying to Render (or other hosts), set these in your Dashboard:
 | Variable | Required? | Description |
 |----------|-----------|-------------|
 | `GEMINI_API_KEY` | **YES** | Required for AI Radio and DJ Tips |
+| `DAB_SESSION` | **YES** (for Hi-Res) | Dab Music session token for 24-bit streaming |
+| `DAB_VISITOR_ID` | **YES** (for Hi-Res) | Dab Music visitor ID |
 | `MP3_BITRATE` | No | Default: 320k |
 | `PORT` | No | Default: 8000 |
 
