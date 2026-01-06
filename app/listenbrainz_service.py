@@ -266,6 +266,47 @@ class ListenBrainzService:
             logger.error(f"ListenBrainz created-for playlists error: {e}")
         
         return formatted
+
+    async def get_user_stats(self, username: str) -> Dict[str, Any]:
+        """Get user's listening statistics from ListenBrainz."""
+        stats = {
+            "listen_count": 0,
+            "top_artists": [],
+            "top_releases": [],
+            "username": username
+        }
+        
+        try:
+            # Get total listen count
+            response = await self.client.get(
+                f"{self.API_BASE}/1/user/{username}/listen-count"
+            )
+            if response.status_code == 200:
+                data = response.json()
+                stats["listen_count"] = data.get("payload", {}).get("count", 0)
+        except Exception as e:
+            logger.warning(f"ListenBrainz listen count error: {e}")
+        
+        try:
+            # Get top artists (this week)
+            response = await self.client.get(
+                f"{self.API_BASE}/1/stats/user/{username}/artists",
+                params={"count": 5, "range": "this_week"}
+            )
+            if response.status_code == 200:
+                data = response.json()
+                artists = data.get("payload", {}).get("artists", [])
+                stats["top_artists"] = [
+                    {
+                        "name": a.get("artist_name", "Unknown"),
+                        "count": a.get("listen_count", 0)
+                    }
+                    for a in artists[:5]
+                ]
+        except Exception as e:
+            logger.warning(f"ListenBrainz top artists error: {e}")
+        
+        return stats
     
     def _format_playlists(self, playlists: list, username: str, is_generated: bool = False) -> List[Dict[str, Any]]:
         """Format playlist data from ListenBrainz API response."""

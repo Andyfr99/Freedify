@@ -103,6 +103,11 @@ async def health_check():
     return {"status": "ok", "service": "freedify-streaming"}
 
 
+@app.get("/api/spotify/made-for-you")
+async def get_spotify_made_for_you():
+    """Get Spotify 'Made For You' playlists (Daily Mix, Discover Weekly)."""
+    return await spotify_service.get_made_for_you_playlists()
+
 @app.get("/api/search")
 async def search(
     q: str = Query(..., min_length=1, description="Search query"),
@@ -1069,6 +1074,11 @@ async def listenbrainz_playlist_tracks(playlist_id: str):
         raise HTTPException(status_code=404, detail="Playlist not found")
     return playlist
 
+@app.get("/api/listenbrainz/stats/{username}")
+async def listenbrainz_stats(username: str):
+    """Get user's ListenBrainz listening statistics."""
+    stats = await listenbrainz_service.get_user_stats(username)
+    return stats
 
 
 @app.get("/api/proxy_image")

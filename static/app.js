@@ -11,7 +11,7 @@ const state = {
     searchType: 'track',
     detailTracks: [],  // Tracks in current detail view
     repeatMode: 'none', // 'none' | 'all' | 'one'
-    volume: 1,
+    volume: parseFloat(localStorage.getItem('freedify_volume')) || 1,
     muted: false,
     crossfadeDuration: 1, // seconds (when crossfade is enabled)
     crossfadeEnabled: localStorage.getItem('freedify_crossfade') === 'true', // Crossfade toggle
@@ -1592,6 +1592,71 @@ function playTrack(track) {
     loadTrack(track);
 }
 
+// ========== ALBUM ART COLOR EXTRACTION ==========
+function extractDominantColor(imageUrl) {
+    // Create an image to load the album art
+    const img = new Image();
+    img.crossOrigin = 'anonymous'; // Allow cross-origin images
+    
+    img.onload = () => {
+        try {
+            // Create a small canvas for sampling
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            const sampleSize = 10; // Sample at 10x10 for performance
+            canvas.width = sampleSize;
+            canvas.height = sampleSize;
+            
+            // Draw the scaled-down image
+            ctx.drawImage(img, 0, 0, sampleSize, sampleSize);
+            
+            // Get pixel data
+            const imageData = ctx.getImageData(0, 0, sampleSize, sampleSize);
+            const pixels = imageData.data;
+            
+            // Calculate average color (excluding very dark/light pixels)
+            let r = 0, g = 0, b = 0, count = 0;
+            for (let i = 0; i < pixels.length; i += 4) {
+                const pr = pixels[i], pg = pixels[i + 1], pb = pixels[i + 2];
+                const brightness = (pr + pg + pb) / 3;
+                
+                // Skip very dark or very light pixels
+                if (brightness > 30 && brightness < 220) {
+                    r += pr;
+                    g += pg;
+                    b += pb;
+                    count++;
+                }
+            }
+            
+            if (count > 0) {
+                r = Math.round(r / count);
+                g = Math.round(g / count);
+                b = Math.round(b / count);
+                
+                // Apply to player section as a subtle gradient
+                const playerSection = $('.player-section');
+                if (playerSection) {
+                    playerSection.style.background = `linear-gradient(180deg, rgba(${r}, ${g}, ${b}, 0.15) 0%, var(--bg-primary) 100%)`;
+                }
+            }
+        } catch (e) {
+            // Canvas tainted or other error - silently ignore
+            console.log('Could not extract color from album art');
+        }
+    };
+    
+    img.onerror = () => {
+        // Reset to default if image fails
+        const playerSection = $('.player-section');
+        if (playerSection) {
+            playerSection.style.background = '';
+        }
+    };
+    
+    img.src = imageUrl;
+}
+
 function updatePlayerUI() {
     if (state.currentIndex < 0 || !state.queue[state.currentIndex]) return;
     const track = state.queue[state.currentIndex];
@@ -1615,6 +1680,11 @@ function updatePlayerUI() {
     }
     
     playerArt.src = track.album_art || '/static/icon.svg';
+    
+    // Extract dominant color for player background
+    if (track.album_art) {
+        extractDominantColor(track.album_art);
+    }
 
     // DJ Mode Info
     const playerDJInfo = $('#player-dj-info');
@@ -2075,8 +2145,46 @@ queueContainer.addEventListener('click', (e) => {
     }
 });
 
+// ========== QUEUE PERSISTENCE ==========
+function saveQueueToStorage() {
+    try {
+        // Save queue and current index
+        const queueData = {
+            queue: state.queue,
+            currentIndex: state.currentIndex
+        };
+        localStorage.setItem('freedify_queue', JSON.stringify(queueData));
+    } catch (e) {
+        console.warn('Could not save queue to storage:', e);
+    }
+}
+
+function loadQueueFromStorage() {
+    try {
+        const saved = localStorage.getItem('freedify_queue');
+        if (saved) {
+            const queueData = JSON.parse(saved);
+            if (queueData.queue && Array.isArray(queueData.queue) && queueData.queue.length > 0) {
+                state.queue = queueData.queue;
+                state.currentIndex = queueData.currentIndex || 0;
+                updateQueueUI();
+                // Load the track but don't auto-play
+                if (state.queue[state.currentIndex]) {
+                    updatePlayerUI();
+                }
+                console.log(`Restored queue: ${state.queue.length} tracks`);
+            }
+        }
+    } catch (e) {
+        console.warn('Could not load queue from storage:', e);
+    }
+}
+
 function updateQueueUI() {
     queueCount.textContent = `(${state.queue.length})`;
+    
+    // Persist queue to localStorage
+    saveQueueToStorage();
     
     if (state.queue.length === 0) {
         queueContainer.innerHTML = '<p style="text-align:center;color:var(--text-tertiary);padding:24px;">Queue is empty</p>';
@@ -2520,6 +2628,9 @@ function updateVolume(vol) {
     audioPlayer.volume = vol;
     audioPlayer2.volume = vol; // Apply to both players
     state.muted = vol === 0;
+    
+    // Persist volume to localStorage
+    localStorage.setItem('freedify_volume', vol.toString());
     
     // Update main slider UI if needed
     const sliderVal = Math.round(vol * 100);
@@ -3258,7 +3369,7 @@ async function findOrCreateFreedifyFolder() {
     }
 }
 
-// Upload playlists to Drive
+// Upload playlists AND queue to Drive
 async function uploadToDrive() {
     if (!googleAccessToken) {
         await signInWithGoogle();
@@ -3268,7 +3379,15 @@ async function uploadToDrive() {
     showLoading('Syncing to Google Drive...');
     
     try {
-        const playlistData = JSON.stringify(state.playlists, null, 2);
+        // Sync both playlists AND queue for multi-device support
+        const syncData = {
+            playlists: state.playlists,
+            queue: state.queue,
+            currentIndex: state.currentIndex,
+            volume: state.volume,
+            syncedAt: new Date().toISOString()
+        };
+        const playlistData = JSON.stringify(syncData, null, 2);
         const existingFile = await findSyncFile();
         
         const metadata = {
@@ -3296,7 +3415,8 @@ async function uploadToDrive() {
         
         if (response.ok) {
             hideLoading();
-            showToast(`Synced ${state.playlists.length} playlist(s) to Google Drive`);
+            const queueInfo = state.queue.length > 0 ? ` + ${state.queue.length} queued tracks` : '';
+            showToast(`Synced ${state.playlists.length} playlist(s)${queueInfo} to Drive`);
             localStorage.setItem('freedify_last_sync', new Date().toISOString());
         } else {
             throw new Error('Upload failed');
@@ -3308,7 +3428,7 @@ async function uploadToDrive() {
     }
 }
 
-// Download playlists from Drive
+// Download playlists AND queue from Drive
 async function downloadFromDrive() {
     if (!googleAccessToken) {
         await signInWithGoogle();
@@ -3322,7 +3442,7 @@ async function downloadFromDrive() {
         
         if (!file) {
             hideLoading();
-            showToast('No saved playlists found in Drive');
+            showToast('No saved data found in Drive');
             return;
         }
         
@@ -3332,11 +3452,52 @@ async function downloadFromDrive() {
         );
         
         if (response.ok) {
-            const playlists = await response.json();
-            state.playlists = playlists;
-            savePlaylists();
+            const syncData = await response.json();
             hideLoading();
-            showToast(`Loaded ${playlists.length} playlist(s) from Google Drive`);
+            
+            // Handle both old format (array) and new format (object with playlists/queue)
+            if (Array.isArray(syncData)) {
+                // Old format: just playlists array
+                state.playlists = syncData;
+                savePlaylists();
+                showToast(`Loaded ${syncData.length} playlist(s) from Drive`);
+            } else {
+                // New format: object with playlists, queue, etc.
+                if (syncData.playlists) {
+                    state.playlists = syncData.playlists;
+                    savePlaylists();
+                }
+                
+                // Offer to restore queue if it exists
+                if (syncData.queue && syncData.queue.length > 0) {
+                    const currentTrack = syncData.queue[syncData.currentIndex || 0];
+                    const trackInfo = currentTrack ? `"${currentTrack.name}" by ${currentTrack.artists}` : '';
+                    
+                    const resume = confirm(
+                        `Found synced session from another device:\n\n` +
+                        `• ${syncData.queue.length} tracks in queue\n` +
+                        `• Playing: ${trackInfo}\n\n` +
+                        `Resume this session?`
+                    );
+                    
+                    if (resume) {
+                        state.queue = syncData.queue;
+                        state.currentIndex = syncData.currentIndex || 0;
+                        if (syncData.volume) {
+                            state.volume = syncData.volume;
+                            audioPlayer.volume = state.volume;
+                            audioPlayer2.volume = state.volume;
+                            if (volumeSlider) volumeSlider.value = Math.round(state.volume * 100);
+                        }
+                        updateQueueUI();
+                        updatePlayerUI();
+                        showToast('Session restored! Press Play to continue.');
+                    }
+                }
+                
+                const msg = `Loaded ${(syncData.playlists || []).length} playlist(s)`;
+                showToast(msg);
+            }
             
             // Refresh view if on favorites tab
             if (state.searchType === 'favorites') {
@@ -3358,8 +3519,8 @@ syncBtn?.addEventListener('click', async () => {
     
     const action = confirm(
         'Google Drive Sync\n\n' +
-        'OK = Upload playlists to Drive\n' +
-        'Cancel = Download playlists from Drive'
+        'OK = Upload playlists + queue to Drive\n' +
+        'Cancel = Download from Drive (can resume on another device)'
     );
     
     if (action) {
@@ -4420,14 +4581,64 @@ async function renderRecommendations() {
     detailView.classList.add('hidden');
     queueSection.classList.add('hidden');
     
+    let html = '';
+    
+    // ========== SPOTIFY "MADE FOR YOU" SECTION ==========
+    // DISABLED: Spotify's sp_dc cookie auth doesn't provide personalized search results.
+    // Re-enable when Spotify Developer API access is available with proper OAuth scopes.
+    /*
+    try {
+        const spotifyRes = await fetch('/api/spotify/made-for-you');
+        if (spotifyRes.ok) {
+            const spotifyPlaylists = await spotifyRes.json();
+            
+            if (spotifyPlaylists && spotifyPlaylists.length > 0) {
+                html += `
+                    <div class="results-header">
+                        <h2>Spotify For You</h2>
+                        <span class="results-count">${spotifyPlaylists.length} playlists</span>
+                    </div>
+                    <div class="results-grid horizontal-scroll" id="spotify-mfy-grid">
+                `;
+                
+                for (const playlist of spotifyPlaylists) {
+                    html += `
+                        <div class="album-card spotify-mfy-card" data-id="${playlist.id}">
+                            <div class="album-card-art-container">
+                                <img class="album-card-art" src="${playlist.image || '/static/icon.png'}" alt="${escapeHtml(playlist.name)}" loading="lazy">
+                                <span class="hires-badge" style="background: linear-gradient(135deg, #1db954 0%, #1ed760 100%);">Spotify</span>
+                            </div>
+                            <div class="album-card-info">
+                                <p class="album-card-title">${escapeHtml(playlist.name)}</p>
+                                <p class="album-card-artist">${escapeHtml(playlist.owner || 'Spotify')}</p>
+                            </div>
+                        </div>
+                    `;
+                }
+                
+                html += '</div>';
+            }
+        }
+    } catch (e) {
+        console.warn('Could not load Spotify Made For You:', e);
+    }
+    */
+    
+    // ========== LISTENBRAINZ SECTION ==========
     if (!state.listenBrainzConfig.valid) {
-        resultsContainer.innerHTML = `
-            <div class="empty-state">
-                <div class="empty-icon">✨</div>
-                <p class="empty-text">Connect ListenBrainz to see personalized recommendations based on your listening history.</p>
-                <p class="empty-text" style="font-size: 0.9em; opacity: 0.8; margin-top: 8px;">Set LISTENBRAINZ_TOKEN in your environment variables.</p>
-            </div>
-        `;
+        if (!html) {
+            // No Spotify AND no ListenBrainz - show empty state
+            resultsContainer.innerHTML = `
+                <div class="empty-state">
+                    <div class="empty-icon">✨</div>
+                    <p class="empty-text">Connect Spotify or ListenBrainz to see personalized recommendations.</p>
+                    <p class="empty-text" style="font-size: 0.9em; opacity: 0.8; margin-top: 8px;">Set SPOTIFY_SP_DC or LISTENBRAINZ_TOKEN in your environment variables.</p>
+                </div>
+            `;
+        } else {
+            resultsContainer.innerHTML = html;
+            attachSpotifyMFYHandlers();
+        }
         return;
     }
     
@@ -4439,13 +4650,39 @@ async function renderRecommendations() {
         
         hideLoading();
         
-        let html = '';
+        // Fetch and display stats panel
+        try {
+            const statsRes = await fetch(`/api/listenbrainz/stats/${state.listenBrainzConfig.username}`);
+            if (statsRes.ok) {
+                const stats = await statsRes.json();
+                if (stats.listen_count > 0) {
+                    html += `
+                        <div class="stats-panel">
+                            <div class="stats-item">
+                                <span class="stats-value">${stats.listen_count.toLocaleString()}</span>
+                                <span class="stats-label">Total Scrobbles</span>
+                            </div>
+                            ${stats.top_artists.length > 0 ? `
+                            <div class="stats-item top-artists">
+                                <span class="stats-label">Top This Week</span>
+                                <div class="stats-artists">
+                                    ${stats.top_artists.slice(0, 3).map(a => `<span class="artist-tag">${escapeHtml(a.name)}</span>`).join('')}
+                                </div>
+                            </div>
+                            ` : ''}
+                        </div>
+                    `;
+                }
+            }
+        } catch (e) {
+            console.warn('Could not load LB stats:', e);
+        }
         
         // Show playlists section
         if (playlistsData.playlists && playlistsData.playlists.length > 0) {
             html += `
                 <div class="results-header">
-                    <h2>📋 Your ListenBrainz Playlists</h2>
+                    <h2>ListenBrainz Playlists</h2>
                     <span class="results-count">${playlistsData.count} playlists</span>
                 </div>
                 <div class="results-grid" id="lb-playlists-grid">
@@ -4473,7 +4710,7 @@ async function renderRecommendations() {
         } else {
             html += `
                 <div class="results-header">
-                    <h2>📋 Your ListenBrainz Playlists</h2>
+                    <h2>ListenBrainz Playlists</h2>
                 </div>
                 <div class="empty-state" style="margin-bottom: 24px;">
                     <div class="empty-icon">📋</div>
@@ -4492,9 +4729,41 @@ async function renderRecommendations() {
             });
         });
         
+        attachSpotifyMFYHandlers();
+        
     } catch (e) {
         console.error(e);
         showError('Failed to load ListenBrainz data');
+    }
+}
+
+// Attach click handlers for Spotify "Made For You" cards
+function attachSpotifyMFYHandlers() {
+    resultsContainer.querySelectorAll('.spotify-mfy-card').forEach(card => {
+        card.addEventListener('click', async () => {
+            const playlistId = card.dataset.id;
+            await openSpotifyPlaylist(playlistId);
+        });
+    });
+}
+
+// Open a Spotify playlist in detail view
+async function openSpotifyPlaylist(playlistId) {
+    showLoading('Loading playlist tracks...');
+    try {
+        const res = await fetch(`/api/content/playlist/${playlistId}?source=spotify`);
+        const playlist = await res.json();
+        
+        if (!res.ok) throw new Error(playlist.detail);
+        
+        hideLoading();
+        console.log('Opening Spotify playlist:', playlist.name, playlist);
+        
+        // Show in detail view
+        showDetailView(playlist, playlist.tracks || []);
+    } catch (e) {
+        console.error('Failed to load Spotify playlist:', e);
+        showError('Failed to load playlist');
     }
 }
 
@@ -4885,3 +5154,141 @@ document.addEventListener('keydown', (e) => {
 });
 
 console.log('AI Assistant module loaded');
+
+// ========== KEYBOARD SHORTCUTS ==========
+// Use existing shortcuts modal
+const shortcutsModal = $('#shortcuts-help');
+const shortcutsCloseBtn = $('#shortcuts-close');
+
+function openShortcutsModal() {
+    if (shortcutsModal) shortcutsModal.classList.remove('hidden');
+}
+
+function closeShortcutsModal() {
+    if (shortcutsModal) shortcutsModal.classList.add('hidden');
+}
+
+if (shortcutsCloseBtn) {
+    shortcutsCloseBtn.addEventListener('click', closeShortcutsModal);
+}
+
+// Close on backdrop click
+if (shortcutsModal) {
+    shortcutsModal.addEventListener('click', (e) => {
+        if (e.target === shortcutsModal) closeShortcutsModal();
+    });
+}
+
+// Global keyboard shortcuts
+document.addEventListener('keydown', (e) => {
+    // Ignore if typing in input
+    const target = e.target;
+    if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable) {
+        return;
+    }
+    
+    // Check for modals first
+    if (e.key === 'Escape') {
+        if (shortcutsModal && !shortcutsModal.classList.contains('hidden')) {
+            closeShortcutsModal();
+            return;
+        }
+        // Other escape handlers exist in their own listeners
+    }
+    
+    // ? - Show shortcuts help
+    if (e.key === '?' || (e.shiftKey && e.key === '/')) {
+        e.preventDefault();
+        openShortcutsModal();
+        return;
+    }
+    
+    // / - Focus search
+    if (e.key === '/' && !e.shiftKey) {
+        e.preventDefault();
+        if (searchInput) searchInput.focus();
+        return;
+    }
+    
+    // Space - Play/Pause
+    if (e.key === ' ') {
+        e.preventDefault();
+        togglePlayPause();
+        return;
+    }
+    
+    // Arrow Left - Previous track
+    if (e.key === 'ArrowLeft' && !e.metaKey && !e.ctrlKey) {
+        e.preventDefault();
+        playPrevious();
+        return;
+    }
+    
+    // Arrow Right - Next track
+    if (e.key === 'ArrowRight' && !e.metaKey && !e.ctrlKey) {
+        e.preventDefault();
+        playNext();
+        return;
+    }
+    
+    // Arrow Up - Volume up
+    if (e.key === 'ArrowUp' && !e.metaKey && !e.ctrlKey) {
+        e.preventDefault();
+        const newVol = Math.min(1, state.volume + 0.1);
+        setVolume(newVol);
+        return;
+    }
+    
+    // Arrow Down - Volume down
+    if (e.key === 'ArrowDown' && !e.metaKey && !e.ctrlKey) {
+        e.preventDefault();
+        const newVol = Math.max(0, state.volume - 0.1);
+        setVolume(newVol);
+        return;
+    }
+    
+    // M - Mute/Unmute
+    if (e.key.toLowerCase() === 'm') {
+        toggleMute();
+        return;
+    }
+    
+    // R - Toggle repeat
+    if (e.key.toLowerCase() === 'r') {
+        cycleRepeatMode();
+        return;
+    }
+    
+    // S - Shuffle (if in queue view)
+    if (e.key.toLowerCase() === 's') {
+        shuffleQueue();
+        return;
+    }
+    
+    // F - Toggle fullscreen player
+    if (e.key.toLowerCase() === 'f') {
+        toggleFullscreenPlayer();
+        return;
+    }
+    
+    // Q - Toggle queue
+    if (e.key.toLowerCase() === 'q') {
+        toggleQueue();
+        return;
+    }
+});
+
+console.log('Keyboard shortcuts loaded');
+
+// ========== INIT: Load persisted state ==========
+// Load saved queue on startup
+setTimeout(() => {
+    loadQueueFromStorage();
+    // Apply saved volume to audio players AND slider UI
+    audioPlayer.volume = state.volume;
+    audioPlayer2.volume = state.volume;
+    if (volumeSlider) {
+        volumeSlider.value = Math.round(state.volume * 100);
+    }
+    console.log(`Volume restored: ${Math.round(state.volume * 100)}%`);
+}, 100);

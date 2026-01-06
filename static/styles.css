@@ -4323,3 +4323,142 @@ body {
 @keyframes spin {
     to { transform: rotate(360deg); }
 }
+
+/* ==================== Keyboard Shortcuts Help ==================== */
+.shortcuts-help-btn {
+    position: fixed;
+    bottom: calc(var(--player-height) + var(--safe-bottom) + 16px);
+    left: 16px;
+    width: 36px;
+    height: 36px;
+    background: var(--bg-tertiary);
+    border: 1px solid var(--bg-elevated);
+    border-radius: var(--radius-full);
+    color: var(--text-tertiary);
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+    transition: all 0.2s ease;
+    opacity: 0.6;
+}
+
+.shortcuts-help-btn:hover {
+    background: var(--bg-elevated);
+    color: var(--text-primary);
+    opacity: 1;
+    transform: scale(1.1);
+}
+
+.shortcuts-modal-content {
+    max-width: 420px;
+    width: 90%;
+}
+
+.shortcuts-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--spacing-lg);
+    padding: var(--spacing-md);
+}
+
+.shortcut-group h4 {
+    font-size: 0.875rem;
+    font-weight: 600;
+    color: var(--accent);
+    margin-bottom: var(--spacing-sm);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.shortcut-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: var(--spacing-xs) 0;
+}
+
+.shortcut-item kbd {
+    display: inline-block;
+    min-width: 32px;
+    padding: 4px 8px;
+    background: var(--bg-tertiary);
+    border: 1px solid var(--bg-elevated);
+    border-radius: 6px;
+    font-family: inherit;
+    font-size: 0.8rem;
+    font-weight: 600;
+    text-align: center;
+    color: var(--text-primary);
+    box-shadow: 0 2px 0 var(--bg-elevated);
+}
+
+.shortcut-item span {
+    color: var(--text-secondary);
+    font-size: 0.875rem;
+}
+
+@media (max-width: 480px) {
+    .shortcuts-help-btn {
+        display: none; /* Hide on mobile - touchscreens don't use keyboard shortcuts */
+    }
+}
+
+/* ==================== ListenBrainz Stats Panel ==================== */
+.stats-panel {
+    display: flex;
+    gap: var(--spacing-lg);
+    padding: var(--spacing-md);
+    background: var(--bg-secondary);
+    border-radius: var(--radius-md);
+    margin-bottom: var(--spacing-lg);
+    flex-wrap: wrap;
+}
+
+.stats-item {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.stats-item.top-artists {
+    flex: 1;
+    min-width: 150px;
+}
+
+.stats-value {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--accent);
+}
+
+.stats-label {
+    font-size: 0.75rem;
+    color: var(--text-tertiary);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.stats-artists {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    margin-top: 4px;
+}
+
+.artist-tag {
+    font-size: 0.8rem;
+    padding: 4px 10px;
+    background: var(--bg-tertiary);
+    border-radius: var(--radius-full);
+    color: var(--text-secondary);
+}
+
+@media (max-width: 400px) {
+    .stats-panel {
+        flex-direction: column;
+    }
+}

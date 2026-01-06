@@ -431,6 +431,63 @@ class SpotifyService:
         secs = seconds % 60
         return f"{minutes}:{secs:02d}"
     
+    async def get_made_for_you_playlists(self) -> List[Dict[str, Any]]:
+        """
+        Get 'Made For You' playlists (Daily Mix, Discover Weekly, etc.).
+        Uses search API with strict filtering for Spotify-owned playlists.
+        Requires authenticated token (sp_dc cookie).
+        """
+        try:
+            # Check if we have a valid token (will try cookie auth)
+            token = await self._get_access_token()
+            if not token:
+                logger.warning("No Spotify token available for Made For You")
+                return []
+            
+            mixes = []
+            queries = ["Daily Mix", "Discover Weekly", "Release Radar", "On Repeat", "Repeat Rewind"]
+            
+            for q in queries:
+                try:
+                    data = await self._api_request("/search", {"q": q, "type": "playlist", "limit": 10})
+                    if not data:
+                        continue
+                    
+                    items = data.get("playlists", {}).get("items", [])
+                    for item in items:
+                        if not item:
+                            continue
+                        
+                        owner_id = item.get("owner", {}).get("id", "")
+                        name = item.get("name", "")
+                        
+                        # Filter: owned by "spotify" OR name starts with one of our keywords
+                        # (Daily Mix 1, Daily Mix 2, etc. are personalized)
+                        is_spotify_owned = owner_id == "spotify"
+                        name_matches = any(name.startswith(kw) or name == kw for kw in queries)
+                        
+                        if is_spotify_owned or name_matches:
+                            mixes.append({
+                                "id": item["id"],
+                                "name": name,
+                                "description": item.get("description", ""),
+                                "image": self._get_best_image(item.get("images", [])),
+                                "owner": "Spotify",
+                                "type": "playlist",
+                                "source": "spotify"
+                            })
+                except Exception as e:
+                    logger.warning(f"Failed to fetch mix '{q}': {e}")
+            
+            # Deduplicate by ID
+            unique_mixes = {m['id']: m for m in mixes}.values()
+            logger.info(f"Found {len(list(unique_mixes))} Made For You playlists")
+            return list(unique_mixes)
+
+        except Exception as e:
+            logger.error(f"Error fetching Made For You playlists: {e}")
+            return []
+
     async def close(self):
         await self.client.aclose()
 
