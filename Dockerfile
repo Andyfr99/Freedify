@@ -16,5 +16,5 @@ COPY . .
 # Expose port (Railway overrides this)
 EXPOSE 8000
 
-# Run the application - Use shell form to read PORT env var
-CMD python -m uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}
+# Run the application - Use exec form with shell for variable expansion and signal handling
+CMD ["sh", "-c", "exec python -m uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}"]
