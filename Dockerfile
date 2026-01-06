@@ -13,8 +13,8 @@ RUN pip install --no-cache-dir -r app/requirements.txt
 # Copy application code
 COPY . .
 
-# Expose port
+# Expose port (Railway overrides this)
 EXPOSE 8000
 
-# Run the application
-CMD ["python", "-m", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+# Run the application - Use shell form to read PORT env var
+CMD python -m uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}
