@@ -1910,8 +1910,21 @@ shuffleQueueBtn.addEventListener('click', () => {
 
 function togglePlay() {
     const player = getActivePlayer();
+    
+    // Check if player has source logic (for refresh case)
+    if (!player.src && state.queue.length > 0 && state.currentIndex >= 0) {
+        // Queue exists but nothing loaded yet (refresh case)
+        loadTrack(state.queue[state.currentIndex]);
+        return;
+    }
+    
     if (player.paused) {
-        player.play();
+        player.play().catch(e => {
+            console.warn('Play failed, trying to reload:', e);
+            if (state.queue[state.currentIndex]) {
+                loadTrack(state.queue[state.currentIndex]);
+            }
+        });
     } else {
         player.pause();
     }
@@ -5213,7 +5226,7 @@ document.addEventListener('keydown', (e) => {
     // Space - Play/Pause
     if (e.key === ' ') {
         e.preventDefault();
-        togglePlayPause();
+        togglePlay();
         return;
     }
     
