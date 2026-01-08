@@ -1727,15 +1727,42 @@ async function updateFormatBadge(audioSrc) {
         return;
     }
     
-    // OPTIMIZATION: Assume FLAC/Hi-Res by default to avoid double-hitting the stream endpoint with a HEAD request.
-    badge.classList.remove('hidden', 'mp3');
-    badge.classList.add('flac');
-    if (state.hiResMode) {
-        badge.classList.add('hi-res');
+    // Get current track source to determine actual quality
+    const currentTrack = state.queue[state.currentIndex];
+    const source = currentTrack?.source || '';
+    
+    // Determine format based on source
+    const isHiResSource = source === 'dab' || source === 'qobuz';
+    const isHiFiSource = source === 'deezer' || source === 'jamendo';
+    const isLossySource = source === 'ytmusic' || source === 'youtube' || source === 'podcast' || source === 'import';
+    
+    badge.classList.remove('hidden', 'mp3', 'flac', 'hi-res');
+    
+    if (isHiResSource && state.hiResMode) {
+        // Hi-Res 24-bit (Dab/Qobuz with Hi-Res mode)
+        badge.classList.add('flac', 'hi-res');
+        badge.textContent = 'Hi-Res';
+    } else if (isHiResSource || isHiFiSource) {
+        // HiFi 16-bit FLAC (Deezer, Jamendo, or Dab without Hi-Res mode)
+        badge.classList.add('flac');
+        badge.textContent = 'FLAC';
+    } else if (isLossySource) {
+        // Lossy MP3/AAC (YouTube, podcasts, imports)
+        badge.classList.add('mp3');
+        badge.textContent = 'MP3';
     } else {
-        badge.classList.remove('hi-res');
+        // Unknown source - default based on preference
+        badge.classList.add('flac');
+        if (state.hiResMode) {
+            badge.classList.add('hi-res');
+        }
+        badge.textContent = 'FLAC';
     }
-    badge.textContent = 'FLAC';
+    
+    // Also update the HiFi button in header
+    if (typeof updateHifiButtonUI === 'function') {
+        updateHifiButtonUI();
+    }
 }
 
 // Player artist/album click handlers for discovery
@@ -3620,18 +3647,47 @@ document.addEventListener('keydown', (e) => {
 // ========== HiFi MODE ==========
 const hifiBtn = $('#hifi-btn');
 
-// Initialize HiFi button state
+// Initialize HiFi button state - reflects actual playing quality, not just preference
 function updateHifiButtonUI() {
     if (hifiBtn) {
-        // Always active (Green base), add .hi-res for Cyan
-        hifiBtn.classList.add('active'); // Always FLAC/HiFi
+        const currentTrack = state.queue[state.currentIndex];
+        const source = currentTrack?.source || '';
         
-        if (state.hiResMode) {
-            hifiBtn.classList.add('hi-res');
-            hifiBtn.title = "Hi-Res Mode ON (24-bit) - Best Quality";
-        } else {
+        // Determine actual quality based on source
+        // Hi-Res (24-bit, cyan): Only Dab/Qobuz with hiResMode ON
+        // HiFi (16-bit, green): Deezer, Jamendo FLAC
+        // Lossy (MP3, dimmed): YouTube, imports, podcasts
+        
+        const isHiResSource = source === 'dab' || source === 'qobuz';
+        const isHiFiSource = source === 'deezer' || source === 'jamendo' || source === 'dab' || source === 'qobuz';
+        const isLossySource = source === 'ytmusic' || source === 'youtube' || source === 'podcast' || source === 'import';
+        
+        // Show actual quality, not just user preference
+        const actuallyPlayingHiRes = isHiResSource && state.hiResMode;
+        const actuallyPlayingHiFi = isHiFiSource && !isLossySource;
+        
+        if (actuallyPlayingHiRes) {
+            hifiBtn.classList.add('active', 'hi-res');
+            hifiBtn.classList.remove('lossy');
+            hifiBtn.title = "Playing: Hi-Res 24-bit Audio";
+            hifiBtn.textContent = "Hi-Res";
+        } else if (actuallyPlayingHiFi) {
+            hifiBtn.classList.add('active');
+            hifiBtn.classList.remove('hi-res', 'lossy');
+            hifiBtn.title = "Playing: HiFi 16-bit Lossless";
+            hifiBtn.textContent = "HiFi";
+        } else if (isLossySource) {
             hifiBtn.classList.remove('hi-res');
-            hifiBtn.title = "HiFi Mode ON (16-bit) - Lossless Standard";
+            hifiBtn.classList.add('active', 'lossy');
+            hifiBtn.title = "Playing: Compressed Audio (MP3/AAC)";
+            hifiBtn.textContent = "MP3";
+        } else {
+            // Default/unknown - show user preference
+            hifiBtn.classList.add('active');
+            hifiBtn.classList.toggle('hi-res', state.hiResMode);
+            hifiBtn.classList.remove('lossy');
+            hifiBtn.title = state.hiResMode ? "Hi-Res Mode ON (24-bit)" : "HiFi Mode ON (16-bit)";
+            hifiBtn.textContent = state.hiResMode ? "Hi-Res" : "HiFi";
         }
     }
 }

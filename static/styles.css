@@ -4058,6 +4058,18 @@ body {
     transform: scale(1.05);
 }
 
+/* Lossy (MP3) Button Style - Dimmed */
+#hifi-btn.lossy {
+    background: var(--bg-tertiary) !important;
+    color: var(--text-tertiary) !important;
+    box-shadow: none;
+    border: 1px solid var(--border-color);
+}
+
+#hifi-btn.lossy:hover {
+    background: var(--bg-secondary) !important;
+}
+
 /* ==================== AI Assistant Modal ==================== */
 
 .ai-btn {

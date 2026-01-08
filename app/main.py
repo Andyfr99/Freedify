@@ -29,6 +29,7 @@ from app.ai_radio_service import ai_radio_service
 from app.ytmusic_service import ytmusic_service
 from app.setlist_service import setlist_service
 from app.listenbrainz_service import listenbrainz_service
+from app.jamendo_service import jamendo_service
 from app.cache import cleanup_cache, periodic_cleanup, is_cached, get_cache_path
 
 # Configure logging
@@ -209,6 +210,24 @@ async def search(
                 results = await deezer_service.search_artists(q, limit=20, offset=offset)
             else:
                 results = await deezer_service.search_tracks(q, limit=20, offset=offset)
+            if results:
+                source = "deezer"
+        
+        # 3. Final fallback to Jamendo (independent/CC music) if still no results
+        if not results and type in ["track", "album", "artist"]:
+            logger.info(f"Falling back to Jamendo search...")
+            try:
+                if type == "album":
+                    results = await jamendo_service.search_albums(q, limit=20, offset=offset)
+                elif type == "artist":
+                    results = await jamendo_service.search_artists(q, limit=20, offset=offset)
+                else:
+                    results = await jamendo_service.search_tracks(q, limit=20, offset=offset)
+                if results:
+                    source = "jamendo"
+                    logger.info(f"Found {len(results)} results on Jamendo")
+            except Exception as e:
+                logger.error(f"Jamendo search error: {e}")
         
         return {"results": results, "query": q, "type": type, "source": source, "offset": offset}
     except Exception as e:
@@ -217,7 +236,7 @@ async def search(
 
 
 async def get_content_by_type(content_type: str, item_id: str):
-    """Helper to get content by type and ID (uses Deezer or Dab)."""
+    """Helper to get content by type and ID (uses Deezer, Dab, or Jamendo)."""
     
     # Handle Dab Music IDs
     if item_id.startswith("dab_"):
@@ -229,6 +248,22 @@ async def get_content_by_type(content_type: str, item_id: str):
         # Dab doesn't really have "get_track" singular metadata endpoint exposed yet, but we can search or use stream.
         # But for UI "open track", usually it plays directly.
         pass
+    
+    # Handle Jamendo IDs (jm_ prefix)
+    if item_id.startswith("jm_"):
+        if content_type == "album":
+            album = await jamendo_service.get_album(item_id)
+            if album:
+                return {"results": [album], "type": "album", "is_url": True, "tracks": album.get("tracks", []), "source": "jamendo"}
+        elif content_type == "artist" or item_id.startswith("jm_artist_"):
+            artist = await jamendo_service.get_artist(item_id)
+            if artist:
+                return {"results": [artist], "type": "artist", "is_url": True, "tracks": artist.get("tracks", []), "source": "jamendo"}
+        elif content_type == "track":
+            track = await jamendo_service.get_track(item_id)
+            if track:
+                return {"results": [track], "type": "track", "is_url": True, "source": "jamendo"}
+        raise HTTPException(status_code=404, detail=f"Jamendo {content_type} not found")
 
     if content_type == "track":
         results = await deezer_service.search_tracks(item_id, limit=1)
@@ -443,6 +478,11 @@ async def stream_audio(
              youtube_url = f"https://music.youtube.com/watch?v={video_id}"
              loop = asyncio.get_event_loop()
              target_stream_url = await loop.run_in_executor(None, audio_service._get_stream_url, youtube_url)
+
+        # Handle Jamendo (jm_) - Direct stream/download URLs
+        elif isrc.startswith("jm_"):
+            track_id = isrc.replace("jm_", "")
+            target_stream_url = await jamendo_service.get_stream_url(track_id, prefer_flac=hires)
 
         # 2. Proxy the Target Stream (if found)
         if target_stream_url:

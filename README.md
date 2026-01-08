@@ -31,6 +31,7 @@ Stream music and podcasts from anywhere. **Generate smart playlists with AI**, s
 ### 🔍 Search
 - **Deezer-powered** - Search tracks, albums, or artists with no rate limits
 - **YouTube Music** - Search YT Music catalog via **More → YT Music**
+- **Jamendo Fallback** - 600K+ independent/Creative Commons tracks (auto-fallback if main sources miss)
 - **Live Show Search** - Search "Phish 2025" or "Grateful Dead 1977" to find live shows
 - **Setlist.fm** - Search concert setlists via **More → Setlists**, auto-matches to audio sources
   - Added Setlist Detail Modal to preview shows before listening
@@ -208,6 +209,7 @@ If you hit rate limits, you can add your own keys:
 | `SETLIST_FM_API_KEY` | For Setlist.fm concert search (free at setlist.fm/settings/api) |
 | `LISTENBRAINZ_TOKEN` | For Scrobbling & Recommendations (get at listenbrainz.org/settings) |
 | `GOOGLE_CLIENT_ID` | For Google Drive sync (get at console.cloud.google.com) |
+| `JAMENDO_CLIENT_ID` | For Jamendo indie music fallback (get at developer.jamendo.com) |
 | `DAB_SESSION` | **Recommended** - For Hi-Res (24-bit) Audio (from Dab/Qobuz) |
 | `DAB_VISITOR_ID` | **Recommended** - For Hi-Res (24-bit) Audio (from Dab/Qobuz) |
 
