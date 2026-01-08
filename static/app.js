@@ -5419,3 +5419,170 @@ setTimeout(() => {
     }
     console.log(`Volume restored: ${Math.round(state.volume * 100)}%`);
 }, 100);
+
+// ========== LYRICS MODAL ==========
+const lyricsBtn = $('#lyrics-btn');
+const fsLyricsBtn = $('#fs-lyrics-btn');
+const lyricsModal = $('#lyrics-modal');
+const lyricsModalClose = $('#lyrics-modal-close');
+const lyricsModalArt = $('#lyrics-modal-art');
+const lyricsModalTitle = $('#lyrics-modal-title');
+const lyricsModalArtist = $('#lyrics-modal-artist');
+const lyricsModalAlbum = $('#lyrics-modal-album');
+const lyricsLoading = $('#lyrics-loading');
+const lyricsText = $('#lyrics-text');
+const lyricsNotFound = $('#lyrics-not-found');
+const lyricsSearchLink = $('#lyrics-search-link');
+const aboutDescription = $('#about-description');
+const aboutRelease = $('#about-release');
+const aboutWriters = $('#about-writers');
+const aboutProducers = $('#about-producers');
+const geniusLink = $('#genius-link');
+const annotationsList = $('#annotations-list');
+const annotationsEmpty = $('#annotations-empty');
+const lyricsTabs = document.querySelectorAll('.lyrics-tab');
+const lyricsPanels = document.querySelectorAll('.lyrics-panel');
+
+let currentLyricsData = null;
+
+async function openLyricsModal() {
+    const track = state.queue[state.currentIndex];
+    if (!track) {
+        showToast('No track playing');
+        return;
+    }
+    
+    // Show modal and loading state
+    lyricsModal.classList.remove('hidden');
+    lyricsLoading.classList.remove('hidden');
+    lyricsText.textContent = '';
+    lyricsNotFound.classList.add('hidden');
+    aboutDescription.textContent = '';
+    aboutRelease.textContent = '';
+    aboutWriters.textContent = '';
+    aboutProducers.textContent = '';
+    
+    // Set header info
+    lyricsModalArt.src = track.album_art || '/static/icon.svg';
+    lyricsModalTitle.textContent = track.name || 'Unknown';
+    lyricsModalArtist.textContent = track.artists || 'Unknown Artist';
+    lyricsModalAlbum.textContent = track.album || '';
+    
+    // Reset to lyrics tab
+    lyricsTabs.forEach(t => t.classList.remove('active'));
+    lyricsPanels.forEach(p => p.classList.remove('active'));
+    document.querySelector('[data-tab="lyrics"]')?.classList.add('active');
+    document.getElementById('lyrics-panel')?.classList.add('active');
+    
+    // Fetch lyrics
+    try {
+        const artist = track.artists || '';
+        const title = track.name || '';
+        const response = await fetch(`/api/lyrics?artist=${encodeURIComponent(artist)}&title=${encodeURIComponent(title)}`);
+        const data = await response.json();
+        
+        currentLyricsData = data;
+        lyricsLoading.classList.add('hidden');
+        
+        if (data.found && data.lyrics) {
+            lyricsText.textContent = data.lyrics;
+            lyricsNotFound.classList.add('hidden');
+        } else {
+            lyricsText.textContent = '';
+            lyricsNotFound.classList.remove('hidden');
+            lyricsSearchLink.href = `https://genius.com/search?q=${encodeURIComponent(artist + ' ' + title)}`;
+        }
+        
+        // Populate About tab
+        if (data.about) {
+            aboutDescription.textContent = data.about;
+        } else {
+            aboutDescription.textContent = 'No description available for this track.';
+        }
+        
+        if (data.release_date) {
+            aboutRelease.innerHTML = `<strong>Released:</strong> ${data.release_date}`;
+        }
+        if (data.writers && data.writers.length > 0) {
+            aboutWriters.innerHTML = `<strong>Written by:</strong> ${data.writers.join(', ')}`;
+        }
+        if (data.producers && data.producers.length > 0) {
+            aboutProducers.innerHTML = `<strong>Produced by:</strong> ${data.producers.join(', ')}`;
+        }
+        if (data.genius_url) {
+            geniusLink.href = data.genius_url;
+            geniusLink.classList.remove('hidden');
+        } else {
+            geniusLink.classList.add('hidden');
+        }
+        
+        // Populate Annotations tab
+        if (data.annotations && data.annotations.length > 0) {
+            annotationsList.innerHTML = data.annotations.map(ann => `
+                <div class="annotation-item">
+                    <div class="annotation-fragment">"${ann.fragment}"</div>
+                    <div class="annotation-text">${ann.text}</div>
+                </div>
+            `).join('');
+            annotationsEmpty.classList.add('hidden');
+        } else {
+            annotationsList.innerHTML = '';
+            annotationsEmpty.classList.remove('hidden');
+        }
+        
+    } catch (error) {
+        console.error('Lyrics fetch error:', error);
+        lyricsLoading.classList.add('hidden');
+        lyricsText.textContent = '';
+        lyricsNotFound.classList.remove('hidden');
+        const artist = track.artists || '';
+        const title = track.name || '';
+        lyricsSearchLink.href = `https://genius.com/search?q=${encodeURIComponent(artist + ' ' + title)}`;
+    }
+}
+
+function closeLyricsModal() {
+    lyricsModal.classList.add('hidden');
+    currentLyricsData = null;
+}
+
+// Button handlers
+if (lyricsBtn) {
+    lyricsBtn.addEventListener('click', openLyricsModal);
+}
+if (fsLyricsBtn) {
+    fsLyricsBtn.addEventListener('click', openLyricsModal);
+}
+if (lyricsModalClose) {
+    lyricsModalClose.addEventListener('click', closeLyricsModal);
+}
+
+// Close on backdrop click
+lyricsModal?.addEventListener('click', (e) => {
+    if (e.target === lyricsModal) {
+        closeLyricsModal();
+    }
+});
+
+// Tab switching
+lyricsTabs.forEach(tab => {
+    tab.addEventListener('click', () => {
+        const tabName = tab.dataset.tab;
+        
+        lyricsTabs.forEach(t => t.classList.remove('active'));
+        lyricsPanels.forEach(p => p.classList.remove('active'));
+        
+        tab.classList.add('active');
+        document.getElementById(`${tabName}-panel`)?.classList.add('active');
+    });
+});
+
+// Add L keyboard shortcut for lyrics
+document.addEventListener('keydown', (e) => {
+    if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+    if (e.key.toLowerCase() === 'l' && !e.ctrlKey && !e.metaKey) {
+        openLyricsModal();
+    }
+});
+
+console.log('Lyrics modal loaded');

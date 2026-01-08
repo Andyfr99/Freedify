@@ -47,6 +47,7 @@
                 <div class="shortcut"><kbd>H</kbd><span>HiFi/Hi-Res</span></div>
                 <div class="shortcut"><kbd>D</kbd><span>Download Track</span></div>
                 <div class="shortcut"><kbd>A</kbd><span>AI Radio</span></div>
+                <div class="shortcut"><kbd>L</kbd><span>Lyrics</span></div>
                 <div class="shortcut"><kbd>Shift + S</kbd><span>Sync to Drive</span></div>
                 <div class="shortcut"><kbd>?</kbd><span>This Help</span></div>
             </div>
@@ -328,18 +329,21 @@
                 <span id="duration" class="time">0:00</span>
             </div>
             
-            <!-- More Menu (Popup) -->
+            <!-- More Menu (Popup) - 2x5 Grid -->
             <div id="player-more-menu" class="player-more-menu hidden">
                 <div class="more-menu-grid">
+                    <!-- Row 1 -->
                     <button id="shuffle-queue-btn" class="control-btn" title="Shuffle Queue">⤭</button>
                     <button id="repeat-btn" class="control-btn" title="Repeat: Off">⟳</button>
                     <button id="download-current-btn" class="control-btn" title="Download">⬇</button>
                     <button id="queue-btn" class="control-btn queue-toggle" title="Queue">☰</button>
                     <button id="mute-btn" class="control-btn volume-btn" title="Mute">🔊</button>
+                    <!-- Row 2 -->
                     <button id="eq-toggle-btn" class="control-btn eq-btn" title="Equalizer">🎛️</button>
                     <button id="ai-radio-btn" class="control-btn ai-radio-btn" title="AI Radio">📻</button>
                     <button id="mini-player-btn" class="control-btn" title="Popout Winamp Player">⧉</button>
                     <button id="add-to-playlist-btn" class="control-btn" title="Add to Playlist">🩷</button>
+                    <button id="lyrics-btn" class="control-btn lyrics-btn" title="Lyrics">📝</button>
                 </div>
                 <!-- Volume slider inside menu for mobile compactness -->
                 <div class="more-menu-volume">
@@ -430,6 +434,7 @@
                 <button id="fs-play-btn" class="fs-control-btn play-btn">▶</button>
                 <button id="fs-next-btn" class="fs-control-btn">⏭</button>
                 <button id="fs-download-btn" class="fs-control-btn" title="Download">⬇</button>
+                <button id="fs-lyrics-btn" class="fs-control-btn" title="Lyrics">📝</button>
             </div>
         </div>
     </div>
@@ -445,6 +450,60 @@
             <div id="podcast-modal-description" class="podcast-modal-description"></div>
             <div class="podcast-modal-actions">
                 <button id="podcast-modal-play" class="podcast-modal-play">▶ Play Episode</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Lyrics Modal -->
+    <div id="lyrics-modal" class="lyrics-modal hidden">
+        <div class="lyrics-modal-content">
+            <button id="lyrics-modal-close" class="lyrics-modal-close">×</button>
+            <div class="lyrics-modal-header">
+                <img id="lyrics-modal-art" class="lyrics-modal-art" src="" alt="Album Art">
+                <div class="lyrics-modal-info">
+                    <h2 id="lyrics-modal-title">Song Title</h2>
+                    <p id="lyrics-modal-artist">Artist</p>
+                    <p id="lyrics-modal-album" class="lyrics-modal-album"></p>
+                </div>
+            </div>
+            <div class="lyrics-tabs">
+                <button class="lyrics-tab active" data-tab="lyrics">Lyrics</button>
+                <button class="lyrics-tab" data-tab="about">About</button>
+                <button class="lyrics-tab" data-tab="annotations">Annotations</button>
+            </div>
+            <div class="lyrics-tab-content">
+                <div id="lyrics-panel" class="lyrics-panel active">
+                    <div id="lyrics-loading" class="lyrics-loading hidden">
+                        <div class="lyrics-spinner"></div>
+                        <p>Fetching lyrics...</p>
+                    </div>
+                    <div id="lyrics-text" class="lyrics-text"></div>
+                    <div id="lyrics-not-found" class="lyrics-not-found hidden">
+                        <p>😢 Lyrics not found for this track</p>
+                        <a id="lyrics-search-link" href="#" target="_blank" class="lyrics-search-link">Search on Genius →</a>
+                    </div>
+                </div>
+                <div id="about-panel" class="lyrics-panel">
+                    <div id="about-content" class="about-content">
+                        <div id="about-description" class="about-description"></div>
+                        <div id="about-credits" class="about-credits">
+                            <p id="about-release"></p>
+                            <p id="about-writers"></p>
+                            <p id="about-producers"></p>
+                        </div>
+                        <a id="genius-link" href="#" target="_blank" class="genius-link">View on Genius →</a>
+                    </div>
+                </div>
+                <div id="annotations-panel" class="lyrics-panel">
+                    <div id="annotations-loading" class="lyrics-loading hidden">
+                        <div class="lyrics-spinner"></div>
+                        <p>Loading annotations...</p>
+                    </div>
+                    <div id="annotations-list" class="annotations-list"></div>
+                    <div id="annotations-empty" class="lyrics-not-found hidden">
+                        <p>No annotations available for this track</p>
+                    </div>
+                </div>
             </div>
         </div>
     </div>

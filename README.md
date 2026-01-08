@@ -50,6 +50,12 @@ Stream music and podcasts from anywhere. **Generate smart playlists with AI**, s
 - **Stats Dashboard** - See your total scrobbles and top artists this week in the For You section
 - **Easy Setup** - Configure via `LISTENBRAINZ_TOKEN` environment variable
 
+### 📝 Genius Lyrics
+- **Lyrics Modal** - Press **L** or click 📝 in player controls to view lyrics
+- **About Tab** - Song descriptions, release date, writers, and producers
+- **Powered by Genius** - Searches and scrapes lyrics from Genius.com
+- **Fullscreen Access** - Lyrics button available in fullscreen mode too
+
 ### 🎛️ Player Controls
 - **Volume Control** - Slider + mute button (volume remembered between sessions)
 - **Repeat Modes** - Off / Repeat All / Repeat One
@@ -133,6 +139,7 @@ Stream music and podcasts from anywhere. **Generate smart playlists with AI**, s
 | H | Toggle HiFi/Hi-Res |
 | D | Download current track |
 | A | Toggle AI Radio |
+| L | Open Lyrics |
 | Shift+S | Sync to Drive |
 | ? | Show shortcuts help |
 
@@ -210,6 +217,7 @@ If you hit rate limits, you can add your own keys:
 | `LISTENBRAINZ_TOKEN` | For Scrobbling & Recommendations (get at listenbrainz.org/settings) |
 | `GOOGLE_CLIENT_ID` | For Google Drive sync (get at console.cloud.google.com) |
 | `JAMENDO_CLIENT_ID` | For Jamendo indie music fallback (get at developer.jamendo.com) |
+| `GENIUS_ACCESS_TOKEN` | For Genius lyrics (get at genius.com/api-clients) |
 | `DAB_SESSION` | **Recommended** - For Hi-Res (24-bit) Audio (from Dab/Qobuz) |
 | `DAB_VISITOR_ID` | **Recommended** - For Hi-Res (24-bit) Audio (from Dab/Qobuz) |
 

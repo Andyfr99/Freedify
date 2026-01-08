@@ -3441,18 +3441,18 @@ body {
 
 /* ==================== Mobile Player Bar Optimization ==================== */
 
-/* Ensure More Menu uses 3x3 Grid (Desktop & Mobile) */
+/* Ensure More Menu uses 5-column Grid (2x5 layout for 10 buttons) */
 .more-menu-grid {
     display: grid !important;
-    grid-template-columns: repeat(3, 1fr) !important;
+    grid-template-columns: repeat(5, 1fr) !important;
     gap: 8px !important;
     padding: 8px;
 }
 
-/* Adjust menu width if needed */
+/* Adjust menu width for 5 columns */
 .player-more-menu {
     width: auto !important;
-    min-width: 180px;
+    min-width: 260px;
 }
 
 /* Mobile Layout Changes */
@@ -4472,5 +4472,289 @@ body {
 @media (max-width: 400px) {
     .stats-panel {
         flex-direction: column;
+    }
+}
+
+/* ==================== Lyrics Modal ==================== */
+
+.lyrics-modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.85);
+    z-index: 10000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    animation: fadeIn 0.2s ease;
+}
+
+.lyrics-modal-content {
+    background: var(--bg-secondary);
+    border-radius: 16px;
+    max-width: 600px;
+    width: 100%;
+    max-height: 85vh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    position: relative;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+}
+
+.lyrics-modal-close {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    background: var(--bg-tertiary);
+    border: none;
+    color: var(--text-primary);
+    font-size: 1.5rem;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    cursor: pointer;
+    z-index: 10;
+    transition: all 0.2s;
+}
+
+.lyrics-modal-close:hover {
+    background: var(--accent-color);
+    transform: scale(1.1);
+}
+
+.lyrics-modal-header {
+    display: flex;
+    gap: 16px;
+    padding: 20px;
+    background: linear-gradient(180deg, var(--bg-tertiary) 0%, transparent 100%);
+    align-items: center;
+}
+
+.lyrics-modal-art {
+    width: 80px;
+    height: 80px;
+    border-radius: 8px;
+    object-fit: cover;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.lyrics-modal-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.lyrics-modal-info h2 {
+    font-size: 1.25rem;
+    font-weight: 700;
+    margin: 0 0 4px 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.lyrics-modal-info p {
+    margin: 0;
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+}
+
+.lyrics-modal-album {
+    font-size: 0.8rem !important;
+    color: var(--text-tertiary) !important;
+}
+
+/* Tabs */
+.lyrics-tabs {
+    display: flex;
+    border-bottom: 1px solid var(--bg-tertiary);
+    padding: 0 20px;
+}
+
+.lyrics-tab {
+    background: none;
+    border: none;
+    color: var(--text-secondary);
+    font-size: 0.9rem;
+    font-weight: 600;
+    padding: 12px 20px;
+    cursor: pointer;
+    position: relative;
+    transition: all 0.2s;
+}
+
+.lyrics-tab:hover {
+    color: var(--text-primary);
+}
+
+.lyrics-tab.active {
+    color: var(--accent-color);
+}
+
+.lyrics-tab.active::after {
+    content: '';
+    position: absolute;
+    bottom: -1px;
+    left: 0;
+    right: 0;
+    height: 2px;
+    background: var(--accent-color);
+}
+
+/* Tab Content */
+.lyrics-tab-content {
+    flex: 1;
+    overflow-y: auto;
+    padding: 20px;
+}
+
+.lyrics-panel {
+    display: none;
+}
+
+.lyrics-panel.active {
+    display: block;
+}
+
+/* Lyrics Text */
+.lyrics-text {
+    font-size: 1rem;
+    line-height: 1.8;
+    white-space: pre-wrap;
+    color: var(--text-primary);
+}
+
+/* Loading */
+.lyrics-loading {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 40px;
+    color: var(--text-secondary);
+}
+
+.lyrics-spinner {
+    width: 40px;
+    height: 40px;
+    border: 3px solid var(--bg-tertiary);
+    border-top-color: var(--accent-color);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin-bottom: 12px;
+}
+
+/* Not Found */
+.lyrics-not-found {
+    text-align: center;
+    padding: 40px;
+    color: var(--text-secondary);
+}
+
+.lyrics-search-link,
+.genius-link {
+    display: inline-block;
+    color: var(--accent-color);
+    text-decoration: none;
+    margin-top: 12px;
+    font-weight: 500;
+}
+
+.lyrics-search-link:hover,
+.genius-link:hover {
+    text-decoration: underline;
+}
+
+/* About Section */
+.about-content {
+    color: var(--text-primary);
+}
+
+.about-description {
+    font-size: 0.95rem;
+    line-height: 1.7;
+    margin-bottom: 20px;
+}
+
+.about-credits {
+    background: var(--bg-tertiary);
+    padding: 16px;
+    border-radius: 8px;
+    margin-bottom: 16px;
+}
+
+.about-credits p {
+    margin: 0 0 8px 0;
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+}
+
+.about-credits p:last-child {
+    margin-bottom: 0;
+}
+
+.about-credits strong {
+    color: var(--text-primary);
+}
+
+/* Lyrics button active state */
+.lyrics-btn.active {
+    color: #f59e0b !important;
+}
+
+/* Annotations */
+.annotations-list {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.annotation-item {
+    background: var(--bg-tertiary);
+    border-radius: 8px;
+    padding: 16px;
+    border-left: 3px solid var(--accent-color);
+}
+
+.annotation-fragment {
+    font-style: italic;
+    color: var(--accent-color);
+    font-size: 0.9rem;
+    margin-bottom: 10px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid rgba(255,255,255,0.1);
+}
+
+.annotation-text {
+    font-size: 0.9rem;
+    line-height: 1.6;
+    color: var(--text-secondary);
+}
+
+/* Mobile adjustments */
+@media (max-width: 600px) {
+    .lyrics-modal {
+        padding: 10px;
+    }
+    
+    .lyrics-modal-content {
+        max-height: 90vh;
+        border-radius: 12px;
+    }
+    
+    .lyrics-modal-header {
+        padding: 16px;
+    }
+    
+    .lyrics-modal-art {
+        width: 60px;
+        height: 60px;
+    }
+    
+    .lyrics-modal-info h2 {
+        font-size: 1rem;
     }
 }

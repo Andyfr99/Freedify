@@ -30,6 +30,7 @@ from app.ytmusic_service import ytmusic_service
 from app.setlist_service import setlist_service
 from app.listenbrainz_service import listenbrainz_service
 from app.jamendo_service import jamendo_service
+from app.genius_service import genius_service
 from app.cache import cleanup_cache, periodic_cleanup, is_cached, get_cache_path
 
 # Configure logging
@@ -1127,6 +1128,15 @@ async def listenbrainz_stats(username: str):
     """Get user's ListenBrainz listening statistics."""
     stats = await listenbrainz_service.get_user_stats(username)
     return stats
+
+
+# ========== GENIUS LYRICS ==========
+
+@app.get("/api/lyrics")
+async def get_lyrics(artist: str, title: str):
+    """Get lyrics and song info from Genius."""
+    result = await genius_service.get_lyrics_and_info(artist, title)
+    return result
 
 
 @app.get("/api/proxy_image")
