@@ -335,6 +335,60 @@ Click a result to see the full setlist with song annotations, then click "Listen
 
 ---
 
+## 📸 Screenshots
+
+<p align="center">
+  <img src="screenshots/album-search.png" alt="Album Search" width="700">
+  <br><em>Search albums with Hi-Res badges — stream in 24-bit lossless quality from Qobuz</em>
+</p>
+
+<p align="center">
+  <img src="screenshots/album-details.png" alt="Album Details" width="500">
+  <br><em>Album view with format info, track listing, and one-click download as ZIP</em>
+</p>
+
+<p align="center">
+  <img src="screenshots/fullscreen-player.png" alt="Fullscreen Player" width="500">
+  <br><em>Immersive fullscreen mode with album art, playback controls, and visualizer toggle</em>
+</p>
+
+<p align="center">
+  <img src="screenshots/download-formats.png" alt="Download Formats" width="400">
+  <br><em>Smart format selection — options adapt based on source quality (lossy, 16-bit, or 24-bit Hi-Res)</em>
+</p>
+
+<p align="center">
+  <img src="screenshots/equalizer.png" alt="Equalizer" width="400">
+  <br><em>5-band EQ with presets (Flat, Bass Boost, Treble, Vocal) plus bass and volume boost</em>
+</p>
+
+<p align="center">
+  <img src="screenshots/genius-lyrics.png" alt="Genius Lyrics" width="500">
+  <br><em>Full lyrics with verse/chorus sections synced from Genius</em>
+</p>
+
+<p align="center">
+  <img src="screenshots/genius-annotations.png" alt="Genius Annotations" width="500">
+  <br><em>Genius annotations explaining song meanings and references</em>
+</p>
+
+<p align="center">
+  <img src="screenshots/podcast-episode.png" alt="Podcast Episode" width="400">
+  <br><em>Podcast support with episode details, show notes, and streaming playback</em>
+</p>
+
+<p align="center">
+  <img src="screenshots/milkdrop-visualizer.png" alt="MilkDrop Visualizer" width="700">
+  <br><em>MilkDrop visualizer powered by Butterchurn — hundreds of audio-reactive presets</em>
+</p>
+
+<p align="center">
+  <img src="screenshots/milkdrop-visualizer-2.png" alt="MilkDrop Visualizer 2" width="700">
+  <br><em>Switch between MilkDrop, Bars, Wave, and Particles modes with keyboard shortcuts</em>
+</p>
+
+---
+
 ## Credits
 Inspired by and built off of [Spotiflac](https://github.com/afkarxyz/Spotiflac) by afkarxyz.
 **Hi-Res Audio Source** provided by [Dab Music](https://dabmusic.xyz).
