@@ -1,6 +1,6 @@
 # Freedify - Music Streaming Web App
 
-*Last updated: January 6, 2026*
+*Last updated: January 9, 2026*
 
 Stream music and podcasts from anywhere. **Generate smart playlists with AI**, search songs, albums, artists, podcasts or paste URLs from Spotify, SoundCloud, Bandcamp, Archive.org, Phish.in, and more.
 
@@ -119,11 +119,73 @@ Stream music and podcasts from anywhere. **Generate smart playlists with AI**, s
 - **Persistent** - Theme saved to localStorage
 
 ### ☁️ Google Drive Sync
+- **Sync Modal** - Click ☁️ or press `Shift+S` to open the Drive Sync panel
+- **Granular Control** - Choose to sync:
+  - **Everything** (Playlists + Queue)
+  - **Playlists Only** (keeps cloud queue unchanged)
+  - **Queue Only** (keeps cloud playlists unchanged)
+- **Cross-Device Resume** - Start listening on one device, continue on another
+- **Smart Merge** - Partial uploads preserve existing cloud data
 - **Save Tracks** - Save audio directly to your "Freedify" folder
-- **Cross-Device** - Sync playlists AND queue across devices
-- **Multi-Device Resume** - Start listening on one device, continue on another
-- **Upload/Download** - Manual sync control (☁️ button in header)
 - **Privacy** - Uses Drive appDataFolder (hidden from Drive UI)
+
+---
+
+## 🔑 Google Cloud Setup (Required for Drive Sync & AI)
+
+To enable **Google Drive Sync** and **AI features (Smart Playlist, AI Radio, DJ Mode)**, you need to set up a Google Cloud Project.
+
+### Step 1: Create a Google Cloud Project
+
+1. Go to [Google Cloud Console](https://console.cloud.google.com/)
+2. Click the project dropdown (top-left) → **New Project**
+3. Name it (e.g., "Freedify") → **Create**
+4. Select your new project from the dropdown
+
+### Step 2: Enable Required APIs
+
+1. Go to **APIs & Services → Library**
+2. Search for and **Enable** each of these:
+   - **Google Drive API** (for cloud sync)
+   - **Generative Language API** (for Gemini AI features)
+
+### Step 3: Create OAuth 2.0 Credentials (for Drive Sign-In)
+
+1. Go to **APIs & Services → Credentials**
+2. Click **+ CREATE CREDENTIALS → OAuth client ID**
+3. If prompted, configure the **OAuth consent screen**:
+   - Choose **External** (unless you're a Google Workspace user)
+   - Fill in App name, support email
+   - Add **Scopes**: `../auth/drive.appdata`, `../auth/drive.file`
+   - Add your email as a **Test User** (required during testing)
+   - Save and continue
+4. Back in Credentials, create an **OAuth client ID**:
+   - Application type: **Web application**
+   - Name: "Freedify Web"
+   - **Authorized JavaScript origins**: Add your domains, e.g.:
+     - `http://localhost:8000` (for local dev)
+     - `https://your-app.up.railway.app` (for production)
+   - **Authorized redirect URIs**: (optional, not needed for implicit flow)
+   - Click **Create**
+5. Copy your **Client ID** (looks like `123456789-abc.apps.googleusercontent.com`)
+6. Set it as `GOOGLE_CLIENT_ID` environment variable
+
+### Step 4: Create a Gemini API Key (for AI Features)
+
+1. In Google Cloud Console, go to **APIs & Services → Credentials**
+2. Click **+ CREATE CREDENTIALS → API key**
+3. Copy the generated API key
+4. (Optional) Click **Edit API key** to restrict it to "Generative Language API" only
+5. Set it as `GEMINI_API_KEY` environment variable
+
+### Environment Variables Summary
+
+| Variable | Purpose |
+|----------|---------|
+| `GOOGLE_CLIENT_ID` | OAuth2 Client ID for Google Sign-In (Drive Sync) |
+| `GEMINI_API_KEY` | API Key for Gemini AI (Smart Playlist, AI Radio, DJ Mode) |
+
+> **Note:** For local development on `localhost`, you may see a "This app isn't verified" warning during sign-in. Click **Advanced → Go to Freedify (unsafe)** to proceed. For production, submit your app for verification in the OAuth consent screen settings.
 
 ### 📱 Mobile Ready
 - **PWA Support** - Install on your phone's home screen

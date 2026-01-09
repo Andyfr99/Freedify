@@ -3430,26 +3430,64 @@ async function findOrCreateFreedifyFolder() {
     }
 }
 
-// Upload playlists AND queue to Drive
-async function uploadToDrive() {
+// Upload to Drive with Granular Support
+// syncType: 'all', 'playlists', 'queue'
+async function uploadToDrive(syncType = 'all') {
     if (!googleAccessToken) {
         await signInWithGoogle();
-        if (!googleAccessToken) return;
+        if (!googleAccessToken) return; // User cancelled auth
     }
     
-    showLoading('Syncing to Google Drive...');
+    const loadingText = syncType === 'all' ? 'Syncing all to Drive...' : 
+                        syncType === 'playlists' ? 'Syncing playlists...' : 'Syncing queue...';
+    showLoading(loadingText);
     
     try {
-        // Sync both playlists AND queue for multi-device support
+        // 1. Fetch EXISTING file first to preserve data we aren't updating
+        const existingFile = await findSyncFile();
+        let currentRemoteData = {};
+        
+        if (existingFile) {
+            try {
+                const response = await fetch(
+                    `https://www.googleapis.com/drive/v3/files/${existingFile.id}?alt=media`,
+                    { headers: { 'Authorization': `Bearer ${googleAccessToken}` } }
+                );
+                if (response.ok) {
+                    const json = await response.json();
+                    // Handle legacy array format
+                    if (Array.isArray(json)) {
+                         currentRemoteData = { playlists: json, queue: [] };
+                    } else {
+                         currentRemoteData = json;
+                    }
+                }
+            } catch (err) {
+                console.warn('Failed to read existing sync data, starting fresh', err);
+            }
+        }
+
+        // 2. Prepare NEW data by merging state into remote data
         const syncData = {
-            playlists: state.playlists,
-            queue: state.queue,
-            currentIndex: state.currentIndex,
-            volume: state.volume,
+            playlists: currentRemoteData.playlists || [],
+            queue: currentRemoteData.queue || [],
+            currentIndex: currentRemoteData.currentIndex || 0,
+            volume: currentRemoteData.volume || 1,
             syncedAt: new Date().toISOString()
         };
-        const playlistData = JSON.stringify(syncData, null, 2);
-        const existingFile = await findSyncFile();
+
+        if (syncType === 'all' || syncType === 'playlists') {
+            syncData.playlists = state.playlists;
+        }
+        
+        if (syncType === 'all' || syncType === 'queue') {
+            syncData.queue = state.queue;
+            syncData.currentIndex = state.currentIndex;
+            syncData.volume = state.volume;
+        }
+
+        // 3. Upload
+        const fileContent = JSON.stringify(syncData, null, 2);
         
         const metadata = {
             name: SYNC_FILENAME,
@@ -3462,7 +3500,7 @@ async function uploadToDrive() {
         
         const form = new FormData();
         form.append('metadata', new Blob([JSON.stringify(metadata)], { type: 'application/json' }));
-        form.append('file', new Blob([playlistData], { type: 'application/json' }));
+        form.append('file', new Blob([fileContent], { type: 'application/json' }));
         
         const url = existingFile 
             ? `https://www.googleapis.com/upload/drive/v3/files/${existingFile.id}?uploadType=multipart`
@@ -3476,8 +3514,15 @@ async function uploadToDrive() {
         
         if (response.ok) {
             hideLoading();
-            const queueInfo = state.queue.length > 0 ? ` + ${state.queue.length} queued tracks` : '';
-            showToast(`Synced ${state.playlists.length} playlist(s)${queueInfo} to Drive`);
+            // Close modal if open
+            $('#drive-sync-modal').classList.add('hidden');
+            
+            let msg = 'Sync Complete!';
+            if (syncType === 'playlists') msg = `Synced ${state.playlists.length} playlists to Drive`;
+            if (syncType === 'queue') msg = `Synced queue (${state.queue.length} tracks)`;
+            if (syncType === 'all') msg = `Synced Match & Queue to Drive`;
+            
+            showToast(msg);
             localStorage.setItem('freedify_last_sync', new Date().toISOString());
         } else {
             throw new Error('Upload failed');
@@ -3489,8 +3534,8 @@ async function uploadToDrive() {
     }
 }
 
-// Download playlists AND queue from Drive
-async function downloadFromDrive() {
+// Download from Drive with Granular Support
+async function downloadFromDrive(syncType = 'all') {
     if (!googleAccessToken) {
         await signInWithGoogle();
         if (!googleAccessToken) return;
@@ -3514,56 +3559,48 @@ async function downloadFromDrive() {
         
         if (response.ok) {
             const syncData = await response.json();
-            hideLoading();
             
-            // Handle both old format (array) and new format (object with playlists/queue)
-            if (Array.isArray(syncData)) {
-                // Old format: just playlists array
-                state.playlists = syncData;
+            // Normalize data (handle legacy)
+            const remotePlaylists = Array.isArray(syncData) ? syncData : (syncData.playlists || []);
+            const remoteQueue = Array.isArray(syncData) ? [] : (syncData.queue || []);
+            const remoteIndex = Array.isArray(syncData) ? 0 : (syncData.currentIndex || 0);
+
+            let restoredCount = 0;
+            
+            // Apply updates
+            if (syncType === 'all' || syncType === 'playlists') {
+                state.playlists = remotePlaylists;
                 savePlaylists();
-                showToast(`Loaded ${syncData.length} playlist(s) from Drive`);
-            } else {
-                // New format: object with playlists, queue, etc.
-                if (syncData.playlists) {
-                    state.playlists = syncData.playlists;
-                    savePlaylists();
-                }
-                
-                // Offer to restore queue if it exists
-                if (syncData.queue && syncData.queue.length > 0) {
-                    const currentTrack = syncData.queue[syncData.currentIndex || 0];
-                    const trackInfo = currentTrack ? `"${currentTrack.name}" by ${currentTrack.artists}` : '';
-                    
-                    const resume = confirm(
-                        `Found synced session from another device:\n\n` +
-                        `• ${syncData.queue.length} tracks in queue\n` +
-                        `• Playing: ${trackInfo}\n\n` +
-                        `Resume this session?`
-                    );
-                    
-                    if (resume) {
-                        state.queue = syncData.queue;
-                        state.currentIndex = syncData.currentIndex || 0;
-                        if (syncData.volume) {
-                            state.volume = syncData.volume;
-                            audioPlayer.volume = state.volume;
-                            audioPlayer2.volume = state.volume;
-                            if (volumeSlider) volumeSlider.value = Math.round(state.volume * 100);
-                        }
-                        updateQueueUI();
-                        updatePlayerUI();
-                        showToast('Session restored! Press Play to continue.');
-                    }
-                }
-                
-                const msg = `Loaded ${(syncData.playlists || []).length} playlist(s)`;
-                showToast(msg);
+                restoredCount = remotePlaylists.length;
+                // If favorites view is active, refresh it
+                if (state.searchType === 'favorites') renderPlaylistsView();
             }
             
-            // Refresh view if on favorites tab
-            if (state.searchType === 'favorites') {
-                renderPlaylistsView();
+            if (syncType === 'all' || syncType === 'queue') {
+                if (remoteQueue.length > 0) {
+                   state.queue = remoteQueue;
+                   state.currentIndex = remoteIndex;
+                   // Use remote volume only if 'all' to avoid startling volume jumps on just queue sync? 
+                   // Let's stick to syncing volume on queue sync.
+                   if (syncData.volume) {
+                       state.volume = syncData.volume;
+                       if (audioPlayer) audioPlayer.volume = state.volume;
+                       if (audioPlayer2) audioPlayer2.volume = state.volume;
+                       if (volumeSlider) volumeSlider.value = Math.round(state.volume * 100);
+                   }
+                   updateQueueUI();
+                   updatePlayerUI();
+                }
             }
+            
+            hideLoading();
+            // Close modal
+            $('#drive-sync-modal').classList.add('hidden');
+            
+            if (syncType === 'playlists') showToast(`Loaded ${restoredCount} playlists`);
+            else if (syncType === 'queue') showToast(`Loaded queue (${remoteQueue.length} tracks)`);
+            else showToast(`Loaded Library & Session`);
+
         } else {
             throw new Error('Download failed');
         }
@@ -3574,22 +3611,71 @@ async function downloadFromDrive() {
     }
 }
 
-// Sync button click handler
-syncBtn?.addEventListener('click', async () => {
-    await initGoogleApi();
+// --- Drive Sync Modal UI & Events ---
+
+function updateDriveModalUI() {
+    const authSection = $('#drive-auth-section');
+    const optionsSection = $('#drive-options-section');
+    const userEmailSpan = $('#drive-user-email');
+    const authInstance = gapi.auth2 ? gapi.auth2.getAuthInstance() : null;
     
-    const action = confirm(
-        'Google Drive Sync\n\n' +
-        'OK = Upload playlists + queue to Drive\n' +
-        'Cancel = Download from Drive (can resume on another device)'
-    );
-    
-    if (action) {
-        await uploadToDrive();
+    if (authInstance && authInstance.isSignedIn.get()) {
+        authSection.classList.add('hidden');
+        optionsSection.classList.remove('hidden');
+        const user = authInstance.currentUser.get();
+        const email = user.getBasicProfile().getEmail();
+        if (userEmailSpan) userEmailSpan.textContent = email;
     } else {
-        await downloadFromDrive();
+        authSection.classList.remove('hidden');
+        optionsSection.classList.add('hidden');
+    }
+}
+
+async function showDriveModal() {
+    const modal = $('#drive-sync-modal');
+    modal.classList.remove('hidden');
+    
+    // Ensure API is ready
+    if (typeof gapi !== 'undefined' && (!gapi.auth2 || !gapi.client.drive)) {
+        $('#drive-loading').classList.remove('hidden');
+        await initGoogleApi();
+        $('#drive-loading').classList.add('hidden');
+    }
+    updateDriveModalUI();
+}
+
+// Open Modal
+syncBtn?.addEventListener('click', () => {
+    showDriveModal();
+});
+
+// Close Modal
+$('#drive-modal-close')?.addEventListener('click', () => $('#drive-sync-modal').classList.add('hidden'));
+$('#drive-modal-close-top')?.addEventListener('click', () => $('#drive-sync-modal').classList.add('hidden'));
+
+// Auth Buttons
+$('#drive-signin-btn')?.addEventListener('click', async () => {
+    await signInWithGoogle();
+    updateDriveModalUI();
+});
+
+$('#drive-signout-btn')?.addEventListener('click', () => {
+    if (gapi.auth2) {
+        gapi.auth2.getAuthInstance().signOut().then(() => {
+            updateDriveModalUI();
+            showToast('Signed out');
+        });
     }
 });
+
+// Granular Action Bindings
+$('#drive-up-all')?.addEventListener('click', () => uploadToDrive('all'));
+$('#drive-up-playlists')?.addEventListener('click', () => uploadToDrive('playlists'));
+$('#drive-up-queue')?.addEventListener('click', () => uploadToDrive('queue'));
+
+$('#drive-down-all')?.addEventListener('click', () => downloadFromDrive('all'));
+$('#drive-down-playlists')?.addEventListener('click', () => downloadFromDrive('playlists'));
+$('#drive-down-queue')?.addEventListener('click', () => downloadFromDrive('queue'));
 
 // ========== PODCAST EPISODE DETAILS MODAL ==========
 const podcastModal = $('#podcast-modal');

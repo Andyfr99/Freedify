@@ -254,6 +254,8 @@
                         </div>
                     </div>
                     
+
+
                     <!-- Tabs -->
                     <div class="album-tabs">
                         <button class="album-tab active" data-tab="tracks">Tracks</button>
@@ -648,6 +650,74 @@
                 <button id="setlist-play-btn" class="btn-primary" style="width: 100%;">
                     🎧 Listen to Show
                 </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Drive Sync Modal -->
+    <div id="drive-sync-modal" class="modal hidden">
+        <div class="modal-content drive-modal-content">
+            <div class="modal-header">
+                <h2>Google Drive Sync</h2>
+                <button id="drive-modal-close-top" class="modal-close-btn">×</button>
+            </div>
+            
+            <!-- Auth Section -->
+            <div id="drive-auth-section">
+                <p style="margin-bottom: 20px; color: var(--text-secondary);">Sign in to sync your library across devices.</p>
+                <div class="drive-signin-container">
+                    <button id="drive-signin-btn" class="drive-auth-btn">
+                        <svg width="20" height="20" viewBox="0 0 24 24"><path fill="currentColor" d="M21.35 11.1h-9.17v2.73h6.51c-.33 3.81-3.5 5.44-6.5 5.44C8.36 19.27 5 16.25 5 12c0-4.1 3.2-7.27 7.2-7.27 3.09 0 4.9 1.97 4.9 1.97L19 4.72S16.56 2 12.1 2C6.42 2 2.03 6.8 2.03 12c0 5.05 4.13 10 10.22 10 5.35 0 9.25-3.67 9.25-9.09 0-1.15-.15-1.81-.15-1.81z"/></svg>
+                        Sign in with Google
+                    </button>
+                    <div id="drive-loading" class="hidden">Connecting...</div>
+                </div>
+            </div>
+            
+            <!-- Options Section -->
+            <div id="drive-options-section" class="hidden">
+                <div class="drive-user-info">
+                    <span id="drive-user-email">Connected</span>
+                    <button id="drive-signout-btn" class="text-link">Sign Out</button>
+                </div>
+                
+                <div class="drive-actions-grid">
+                    <!-- Upload Group -->
+                    <div class="sync-group upload-group">
+                        <h3>☁️ Upload (Save)</h3>
+                        <p class="sync-desc">Save your current library to the cloud.</p>
+                        <div class="action-buttons">
+                            <button id="drive-up-all" class="action-btn upload">
+                                <span class="btn-icon">⬆️</span>
+                                <span class="btn-text">Everything</span>
+                            </button>
+                            <button id="drive-up-playlists" class="action-btn upload secondary">
+                                <span class="btn-text">Playlists Only</span>
+                            </button>
+                            <button id="drive-up-queue" class="action-btn upload secondary">
+                                <span class="btn-text">Queue Only</span>
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- Download Group -->
+                    <div class="sync-group download-group">
+                        <h3>⬇️ Download (Load)</h3>
+                        <p class="sync-desc">Restore your library from the cloud.</p>
+                        <div class="action-buttons">
+                            <button id="drive-down-all" class="action-btn download">
+                                <span class="btn-icon">⬇️</span>
+                                <span class="btn-text">Everything</span>
+                            </button>
+                            <button id="drive-down-playlists" class="action-btn download secondary">
+                                <span class="btn-text">Playlists Only</span>
+                            </button>
+                            <button id="drive-down-queue" class="action-btn download secondary">
+                                <span class="btn-text">Queue Only</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
