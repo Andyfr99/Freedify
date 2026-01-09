@@ -1973,8 +1973,8 @@ function playNext() {
     if (state.currentIndex < state.queue.length - 1) {
         state.currentIndex++;
         
-        // Try to use preloaded player (no loading screen)
-        if (preloadedPlayer && preloadedTrackId === state.queue[state.currentIndex]?.id) {
+        // Try to use preloaded player (no loading screen) - ONLY if ready
+        if (preloadedReady && preloadedPlayer && preloadedTrackId === state.queue[state.currentIndex]?.id) {
             console.log('playNext: Using preloaded player for:', state.queue[state.currentIndex].name);
             preloadedTrackId = null;
             preloadedReady = false;
@@ -2753,8 +2753,8 @@ window.playNextWithRepeat = function() {
     if (state.currentIndex < state.queue.length - 1) {
         state.currentIndex++;
         
-        // Try to use preloaded player (no loading screen)
-        if (preloadedPlayer && preloadedTrackId === state.queue[state.currentIndex]?.id) {
+        // Try to use preloaded player (no loading screen) - ONLY if ready
+        if (preloadedReady && preloadedPlayer && preloadedTrackId === state.queue[state.currentIndex]?.id) {
             console.log('playNextWithRepeat: Using preloaded player for:', state.queue[state.currentIndex].name);
             preloadedTrackId = null;
             preloadedReady = false;
@@ -3617,14 +3617,12 @@ function updateDriveModalUI() {
     const authSection = $('#drive-auth-section');
     const optionsSection = $('#drive-options-section');
     const userEmailSpan = $('#drive-user-email');
-    const authInstance = gapi.auth2 ? gapi.auth2.getAuthInstance() : null;
     
-    if (authInstance && authInstance.isSignedIn.get()) {
+    // Check if we have a valid access token (GIS flow stores it in googleAccessToken)
+    if (googleAccessToken) {
         authSection.classList.add('hidden');
         optionsSection.classList.remove('hidden');
-        const user = authInstance.currentUser.get();
-        const email = user.getBasicProfile().getEmail();
-        if (userEmailSpan) userEmailSpan.textContent = email;
+        if (userEmailSpan) userEmailSpan.textContent = 'Connected to Google Drive';
     } else {
         authSection.classList.remove('hidden');
         optionsSection.classList.add('hidden');
@@ -3660,12 +3658,11 @@ $('#drive-signin-btn')?.addEventListener('click', async () => {
 });
 
 $('#drive-signout-btn')?.addEventListener('click', () => {
-    if (gapi.auth2) {
-        gapi.auth2.getAuthInstance().signOut().then(() => {
-            updateDriveModalUI();
-            showToast('Signed out');
-        });
-    }
+    googleAccessToken = null;
+    gapi.client.setToken(null);
+    syncBtn?.classList.remove('synced');
+    updateDriveModalUI();
+    showToast('Signed out from Google Drive');
 });
 
 // Granular Action Bindings
