@@ -390,6 +390,11 @@ Click a result to see the full setlist with song annotations, then click "Listen
   <br><em>Switch between MilkDrop, Bars, Wave, and Particles modes with keyboard shortcuts</em>
 </p>
 
+<p align="center">
+  <img src="screenshots/concert-search.png" alt="Concert Search" width="500">
+  <br><em>Find upcoming concerts for your favorite artists with Ticketmaster + SeatGeek</em>
+</p>
+
 ---
 
 ## Credits

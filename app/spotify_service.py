@@ -237,7 +237,7 @@ class SpotifyService:
     # ========== PLAYLIST METHODS ==========
     
     async def get_playlist(self, playlist_id: str) -> Optional[Dict[str, Any]]:
-        """Get playlist with all tracks."""
+        """Get playlist with all tracks (handles pagination for 100+ songs)."""
         try:
             data = await self._api_request(f"/playlists/{playlist_id}", {"market": "US"})
             
@@ -253,11 +253,38 @@ class SpotifyService:
             }
             
             tracks = []
-            for item in data.get("tracks", {}).get("items", []):
+            # Process first page of tracks
+            tracks_data = data.get("tracks", {})
+            for item in tracks_data.get("items", []):
                 track_data = item.get("track")
                 if track_data and track_data.get("id"):
                     tracks.append(self._format_track(track_data))
             
+            # Paginate through remaining tracks if playlist has more than 100
+            next_url = tracks_data.get("next")
+            while next_url:
+                logger.info(f"Fetching next page of playlist tracks... ({len(tracks)}/{playlist['total_tracks']})")
+                try:
+                    # Extract the path from the full URL
+                    # next_url is like "https://api.spotify.com/v1/playlists/.../tracks?offset=100&limit=100"
+                    next_response = await self.client.get(
+                        next_url,
+                        headers={"Authorization": f"Bearer {self.access_token}"}
+                    )
+                    next_response.raise_for_status()
+                    next_data = next_response.json()
+                    
+                    for item in next_data.get("items", []):
+                        track_data = item.get("track")
+                        if track_data and track_data.get("id"):
+                            tracks.append(self._format_track(track_data))
+                    
+                    next_url = next_data.get("next")
+                except Exception as e:
+                    logger.error(f"Error fetching next page: {e}")
+                    break
+            
+            logger.info(f"Loaded {len(tracks)} tracks from playlist '{playlist['name']}'")
             playlist["tracks"] = tracks
             return playlist
         except Exception as e:
