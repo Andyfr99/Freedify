@@ -164,6 +164,29 @@
             </ol>
         </div>
 
+        <!-- Option 3: Render -->
+        <div class="card">
+            <h2>☁️ Option 3: Render (Free Tier Alternative)</h2>
+            <p><strong>Best for:</strong> Free hosting, if you only need standard 16-bit FLAC.</p>
+            <div class="note" style="border-left-color: #ffcc00; background: rgba(255, 204, 0, 0.1);">
+                <strong>⚠️ Warning:</strong> Hi-Res (24-bit) audio often fails on Render due to IP blocking. You will get standard 16-bit CD quality.
+            </div>
+
+            <h3>Steps</h3>
+            <ol>
+                <li><strong>Fork</strong> the repo to your GitHub.</li>
+                <li>Sign up for <a href="https://render.com" target="_blank">Render.com</a>.</li>
+                <li>Click <strong>New +</strong> → <strong>Web Service</strong> → Select your fork.</li>
+                <li>Configure:
+                    <ul>
+                        <li><strong>Build Command:</strong> <code>pip install -r app/requirements.txt</code></li>
+                        <li><strong>Start Command:</strong> <code>python -m uvicorn app.main:app --host 0.0.0.0 --port $PORT</code></li>
+                    </ul>
+                </li>
+                <li>Click <strong>Create Web Service</strong>.</li>
+            </ol>
+        </div>
+
         <!-- Secrets Section -->
         <div class="card">
             <h2>🔑 How to Find Your API Keys</h2>
