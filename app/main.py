@@ -899,12 +899,25 @@ async def ai_generate_playlist(request: GeneratePlaylistRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+# Global progress store
+# Format: { "download_id": { "current": 0, "total": 0, "status": "processing" } }
+download_progress = {}
+
 class BatchDownloadRequest(BaseModel):
     tracks: List[str]  # List of ISRCs or IDs
     names: List[str]   # List of track names for filenames
     artists: List[str] # List of artist names
     album_name: str
     format: str = "mp3"
+    part: int = 1          # Part number for multi-part downloads
+    total_parts: int = 1   # Total number of parts
+    download_id: Optional[str] = None # Unique ID for progress tracking
+
+
+@app.get("/api/progress/{download_id}")
+async def get_progress(download_id: str):
+    """Get status of a background download"""
+    return download_progress.get(download_id, {"current": 0, "total": 0, "status": "unknown"})
 
 
 @app.post("/api/download-batch")
@@ -916,14 +929,35 @@ async def download_batch(request: BatchDownloadRequest):
         # In-memory ZIP buffer
         zip_buffer = io.BytesIO()
         
+        # Initialize progress tracking
+        if request.download_id:
+            download_progress[request.download_id] = {
+                "current": 0, 
+                "total": len(request.tracks),
+                "status": "processing"
+            }
+        
         with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zip_file:
             used_names = set()
             
             # Process sequentially for better reliability
             for i, isrc in enumerate(request.tracks):
+                # Update progress
+                if request.download_id:
+                    download_progress[request.download_id]["current"] = i
+                
+                # Log progress for debugging
+                logger.info(f"Downloading track {i+1}/{len(request.tracks)}: {request.names[i]}")
+                
                 try:
                     query = f"{request.names[i]} {request.artists[i]}"
-                    result = await audio_service.get_download_audio(isrc, query, request.format)
+                    # Pass track number (1-indexed) for metadata
+                    result = await audio_service.get_download_audio(
+                        isrc, 
+                        query, 
+                        request.format,
+                        track_number=i+1  # 1-indexed track number
+                    )
                     
                     if result:
                         data, ext, _ = result
@@ -940,13 +974,25 @@ async def download_batch(request: BatchDownloadRequest):
                         used_names.add(filename)
                         
                         zip_file.writestr(filename, data)
+                        logger.info(f"Added to ZIP: {filename}")
                 except Exception as e:
                     logger.error(f"Failed to download track {isrc}: {e}")
                     # Continue with other tracks
+
+        # Cleanup progress
+        if request.download_id and request.download_id in download_progress:
+            del download_progress[request.download_id]
         
         zip_buffer.seek(0)
         safe_album = request.album_name.replace("/", "_").replace("\\", "_").replace(":", "_")
-        filename = f"{safe_album}.zip"
+        
+        # Name ZIP with part number if it's a multi-part download
+        if request.total_parts > 1:
+            filename = f"{safe_album} (Part {request.part} of {request.total_parts}).zip"
+        else:
+            filename = f"{safe_album}.zip"
+        
+        logger.info(f"ZIP complete: {filename} ({len(zip_buffer.getvalue())} bytes)")
         
         return Response(
             content=zip_buffer.getvalue(),

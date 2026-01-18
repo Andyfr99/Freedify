@@ -747,6 +747,32 @@ body {
     margin-top: var(--spacing-md);
 }
 
+/* Progress Bar for Loading Overlay */
+.progress-container {
+    margin-top: var(--spacing-lg);
+    width: 300px;
+    max-width: 90vw;
+}
+
+.progress-container.hidden {
+    display: none;
+}
+
+.progress-bar {
+    width: 0%;
+    height: 8px;
+    background: linear-gradient(90deg, var(--accent), var(--accent-light));
+    border-radius: var(--radius-full);
+    transition: width 0.3s ease;
+    margin-bottom: var(--spacing-sm);
+}
+
+.progress-text {
+    font-size: 0.9rem;
+    color: var(--text-primary);
+    font-weight: 600;
+}
+
 /* ==================== Responsive ==================== */
 @media (max-width: 400px) {
     .track-album-art {

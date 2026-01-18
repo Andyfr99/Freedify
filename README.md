@@ -1,6 +1,6 @@
 # Freedify - Music Streaming Web App
 
-*Last updated: January 17, 2026*
+*Last updated: January 18, 2026*
 
 Stream music and podcasts from anywhere. **Generate smart playlists with AI**, search songs, albums, artists, podcasts or paste URLs from Spotify, SoundCloud, Bandcamp, Archive.org, Phish.in, and more.
 
@@ -88,6 +88,7 @@ Stream music and podcasts from anywhere. **Generate smart playlists with AI**, s
 - **Save to Drive** - Direct save to Google Drive (FLAC/AIFF/MP3)
 - **Single Tracks** - Download locally as Artist - Song.ext
 - **Full Albums/Playlists** - Batch download as Artist - Album.zip
+- **Large Playlists** - Playlists over 50 songs are automatically split into multiple ZIP parts (e.g., "Playlist (Part 1).zip") to ensure reliability.
 - **Multiple Formats** - FLAC (Hi-Res), WAV (16/24-bit), AIFF (16/24-bit), ALAC, 320kbps MP3
 - **Current Track** - Press ⬇ on player bar or fullscreen to download now playing
 - **MusicBrainz Metadata** - Downloads enriched with release year, label, and high-res cover art

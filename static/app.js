@@ -3,6 +3,8 @@
  * Enhanced search with albums, artists, playlists, and Spotify URL support
  */
 
+console.log('🔥 FREEDIFY APP.JS VERSION: 2026-01-18-v2 🔥');
+
 // ========== STATE ==========
 const state = {
     queue: [],
@@ -10,6 +12,8 @@ const state = {
     isPlaying: false,
     searchType: 'track',
     detailTracks: [],  // Tracks in current detail view
+    detailName: '',    // Name of current album/playlist for downloads
+    detailArtist: '',  // Artist of current album for downloads
     repeatMode: 'none', // 'none' | 'all' | 'one'
     volume: parseFloat(localStorage.getItem('freedify_volume')) || 1,
     muted: false,
@@ -32,6 +36,15 @@ console.log("Freedify v0106L Loaded - Robust Proxy Cleanup");
 // Helper for multiple selectors (Fix for ReferenceError: $$ is not defined)
 const $ = (selector) => document.querySelector(selector);
 const $$ = (selector) => document.querySelectorAll(selector);
+
+// Global Image Error Handler - Fallback to placeholder for broken album art
+document.addEventListener('error', (e) => {
+    if (e.target.tagName === 'IMG' && e.target.src && !e.target.src.includes('placeholder.svg') && !e.target.dataset.errorHandled) {
+        console.log('Image failed to load, using placeholder:', e.target.src);
+        e.target.dataset.errorHandled = 'true';  // Prevent infinite retry
+        e.target.src = '/static/placeholder.svg';
+    }
+}, true); // Use capture phase to catch before bubbling
 
 // Global Event Delegation for Detail Tracks (Fixes click issues)
 document.addEventListener('click', (e) => {
@@ -654,6 +667,9 @@ if (downloadAllBtn) {
         
         // Get album/playlist name
         const name = $('.detail-name').textContent;
+        // Sync state to ensure filename is correct even if state was lost
+        state.detailName = name;
+        
         downloadTrackName.textContent = `All tracks from "${name}" (ZIP)`;
         downloadModal.classList.remove('hidden');
     });
@@ -791,48 +807,135 @@ downloadConfirmBtn.addEventListener('click', async () => {
     const track = trackToDownload; // Capture before closing modal clears it
     const isBatch = isBatchDownload;
     
+    // Get album/playlist name from state (set when detail view opens)
+    const name = state.detailName || 'Batch Download';
+    const artist = state.detailArtist || '';
+    const albumName = artist ? `${artist} - ${name}` : name;
+    
+    console.log('Download: Using state - name:', name, 'artist:', artist, 'final:', albumName);
+    
     closeDownloadModal();
     
     if (isBatch) {
-        // Batch Download Logic
+        // Multi-Part Batch Download for Large Playlists
         const tracks = state.detailTracks;
-        // ... (rest of batch logic)
-        const name = $('.detail-name').textContent || 'Batch Download';
-        const artist = $('.detail-artist').textContent;
-        const albumName = artist ? `${artist} - ${name}` : name;
+        const totalTracks = tracks.length;
+        const CHUNK_SIZE = 50; // 50 songs per ZIP to avoid browser timeouts
+        const totalParts = Math.ceil(totalTracks / CHUNK_SIZE);
         
-        showLoading(`Preparing ZIP for "${albumName}" (${tracks.length} tracks)...`);
+        // Get progress elements
+        const progressContainer = $('#loading-progress-container');
+        const progressBar = $('#loading-progress-bar');
+        const progressText = $('#loading-progress-text');
+        
+        progressContainer.classList.remove('hidden');
+        
+        let successfulParts = 0;
+        let failedParts = [];
         
         try {
-            const response = await fetch('/api/download-batch', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    tracks: tracks.map(t => t.isrc || t.id),
-                    names: tracks.map(t => t.name),
-                    artists: tracks.map(t => t.artists),
-                    album_name: albumName,
-                    format: format
-                })
-            });
+            for (let part = 1; part <= totalParts; part++) {
+                const start = (part - 1) * CHUNK_SIZE;
+                const end = Math.min(start + CHUNK_SIZE, totalTracks);
+                const chunkTracks = tracks.slice(start, end);
+                
+                // Update loading message for multi-part
+                const partLabel = totalParts > 1 ? ` (Part ${part} of ${totalParts})` : '';
+                showLoading(`Downloading${partLabel}: ${chunkTracks.length} tracks...`);
+                
+                // Real-Time Progress Polling
+                const downloadId = 'dl_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+                let pollInterval;
+                
+                // Start polling immediately
+                pollInterval = setInterval(async () => {
+                    try {
+                        const progRes = await fetch(`/api/progress/${downloadId}`);
+                        if (progRes.ok) {
+                            const progData = await progRes.json();
+                            if (progData.total > 0) {
+                                const chunkProgress = (progData.current / progData.total) * 100;
+                                // Overall progress combines completed parts + current part progress
+                                const overallProgress = ((successfulParts / totalParts) * 100) + (chunkProgress / totalParts);
+                                progressBar.style.width = `${overallProgress}%`;
+                                progressText.textContent = `${Math.round(overallProgress)}%`;
+                            }
+                        }
+                    } catch (e) {
+                        console.warn('Progress poll failed:', e);
+                    }
+                }, 5000); // Poll every 5 seconds
+                
+                try {
+                    const response = await fetch('/api/download-batch', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            tracks: chunkTracks.map(t => t.isrc || t.id),
+                            names: chunkTracks.map(t => t.name),
+                            artists: chunkTracks.map(t => t.artists),
+                            album_name: albumName,
+                            format: format,
+                            part: part,
+                            total_parts: totalParts,
+                            download_id: downloadId
+                        })
+                    });
+                    
+                    clearInterval(pollInterval);
+                    
+                    if (!response.ok) throw new Error(`Part ${part} failed`);
+                    
+                    // Download this part's ZIP
+                    const blob = await response.blob();
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.style.display = 'none';
+                    a.href = url;
+                    
+                    // Name: "Album Name.zip" for single part, "Album Name (Part 1 of 3).zip" for multi
+                    const zipName = totalParts > 1 
+                        ? `${albumName} (Part ${part} of ${totalParts}).zip`
+                        : `${albumName}.zip`;
+                    a.download = zipName.replace(/[\\/:\"*?<>|]/g, "_");
+                    document.body.appendChild(a);
+                    a.click();
+                    window.URL.revokeObjectURL(url);
+                    document.body.removeChild(a);
+                    
+                    successfulParts++;
+                    
+                    // Brief pause between parts so browser can handle downloads
+                    if (part < totalParts) {
+                        await new Promise(resolve => setTimeout(resolve, 1000));
+                    }
+                    
+                } catch (partError) {
+                    clearInterval(progressInterval);
+                    console.error(`Part ${part} error:`, partError);
+                    failedParts.push(part);
+                }
+            }
             
-            if (!response.ok) throw new Error('Batch download failed');
-            
-            const blob = await response.blob();
-            const url = window.URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.style.display = 'none';
-            a.href = url;
-            a.download = `${albumName}.zip`.replace(/[\\/:"*?<>|]/g, "_");
-            document.body.appendChild(a);
-            a.click();
-            window.URL.revokeObjectURL(url);
-            
+            // Update final progress
+            progressBar.style.width = '100%';
+            progressText.textContent = '100%';
+            progressContainer.classList.add('hidden');
             hideLoading();
-            showToast('Batch download started!');
+            
+            // Show result message
+            if (failedParts.length === 0) {
+                const msg = totalParts > 1 
+                    ? `Download complete! ${totalParts} parts saved.`
+                    : 'Download complete!';
+                showToast(msg);
+            } else {
+                showError(`Downloaded ${successfulParts}/${totalParts} parts. Failed: ${failedParts.join(', ')}`);
+            }
             
         } catch (error) {
             console.error('Batch download error:', error);
+            progressContainer.classList.add('hidden');
             hideLoading();
             showError('Failed to create ZIP. Please try again.');
         }
@@ -949,6 +1052,12 @@ async function openAlbum(albumId) {
         
         hideLoading();
         console.log('Opening album modal for:', album.name, album);
+        
+        // Store album info in state for batch downloads
+        state.detailName = album.name || '';
+        state.detailArtist = album.artists || '';
+        console.log('✅ Stored in state - name:', state.detailName, 'artist:', state.detailArtist);
+        
         showAlbumModal(album);
     } catch (error) {
         console.error('Failed to load album:', error);
@@ -1289,6 +1398,17 @@ async function openArtist(artistId) {
 // Updated showDetailView to handle downloads
 function showDetailView(item, tracks) {
     state.detailTracks = tracks || [];
+    
+    // Store name and artist for batch downloads
+    state.detailName = item.name || 'Playlist';
+    
+    // Handle owner if it's an object (Spotify playlist) or string
+    let artistName = item.artists || '';
+    if (!artistName && item.owner) {
+        artistName = typeof item.owner === 'object' ? item.owner.display_name : item.owner;
+    }
+    state.detailArtist = artistName || '';
+    
     const isUserPlaylist = item.is_user_playlist || false;
     
     // Render info section

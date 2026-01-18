@@ -465,7 +465,7 @@ class AudioService:
                 if metadata.get("album_art_data"):
                     picture = Picture()
                     picture.data = metadata["album_art_data"]
-                    picture.type = PictureType.COVER_FRONT
+                    picture.type = 3  # 3 = COVER_FRONT picture type
                     picture.mime = "image/jpeg"
                     audio.add_picture(picture)
                 audio.save()
@@ -677,21 +677,31 @@ class AudioService:
                     if dab_track:
                         metadata = {
                             "title": dab_track.get("title"),
-                            "artist": dab_track.get("artist"),
+                            "artists": dab_track.get("artist"),  # Changed from "artist" to "artists"
                             "album": dab_track.get("albumTitle"),
                             "year": dab_track.get("releaseDate", "")[:4] if dab_track.get("releaseDate") else "",
                             "album_art_url": dab_track.get("albumCover"),
                             "album_art_data": None
                         }
-                        # Ensure artist/album are strings
-                        if isinstance(metadata["artist"], dict): metadata["artist"] = metadata["artist"].get("name")
+                        # Ensure artists/album are strings
+                        if isinstance(metadata["artists"], dict): metadata["artists"] = metadata["artists"].get("name")
                         if isinstance(metadata["album"], dict): metadata["album"] = metadata["album"].get("title")
+                        
+                        # Download album art if URL is present
+                        if metadata.get("album_art_url"):
+                            try:
+                                art_resp = await self.client.get(metadata["album_art_url"])
+                                if art_resp.status_code == 200:
+                                    metadata["album_art_data"] = art_resp.content
+                                    logger.info("Downloaded album art from Dab/Qobuz")
+                            except Exception as e:
+                                logger.debug(f"Failed to download album art: {e}")
                     else:
                         # Fallback: extract from query string (format: "Title Artist")
                         parts = query.split(" ") if query else []
                         metadata = {
                             "title": query or "Unknown",
-                            "artist": "",
+                            "artists": "",  # Changed from "artist" to "artists"
                             "album": "",
                             "year": "",
                             "album_art_url": None,
@@ -722,7 +732,7 @@ class AudioService:
                             
                             meta = {
                                 "title": tidal_track.get("title"),
-                                "artists": [a["name"] for a in tidal_track.get("artists", [])],
+                                "artists": ", ".join([a["name"] for a in tidal_track.get("artists", [])]),  # Join to string
                                 "album": tidal_track.get("album", {}).get("title"),
                                 "year": tidal_track.get("album", {}).get("releaseDate"),
                                 "track_number": tidal_track.get("trackNumber"),
@@ -779,9 +789,11 @@ class AudioService:
                     if response.status_code == 200:
                         logger.info(f"Downloaded {len(response.content) / 1024 / 1024:.2f} MB from Deezer")
                         
+                        # Get artists as string
+                        artists_list = [a["name"] for a in deezer_info.get("contributors", [])] if deezer_info.get("contributors") else [deezer_info.get("artist", {}).get("name")]
                         meta = {
                             "title": deezer_info.get("title"),
-                            "artists": [a["name"] for a in deezer_info.get("contributors", [])] or [deezer_info.get("artist", {}).get("name")],
+                            "artists": ", ".join(filter(None, artists_list)),  # Join to string, filter None
                             "album": deezer_info.get("album", {}).get("title"),
                             "year": deezer_info.get("release_date"),
                             "track_number": deezer_info.get("track_position"),
@@ -957,7 +969,7 @@ class AudioService:
             logger.error(f"Transcode error: {e}")
             return None
     
-    async def get_download_audio(self, isrc: str, query: str, format: str = "mp3") -> Optional[tuple]:
+    async def get_download_audio(self, isrc: str, query: str, format: str = "mp3", track_number: Optional[int] = None) -> Optional[tuple]:
         """Get audio in specified format for download. Returns (data, extension, mime_type)."""
         
         config = self.FORMAT_CONFIG.get(format, self.FORMAT_CONFIG["mp3"])
@@ -981,6 +993,11 @@ class AudioService:
             return None
             
         flac_data, metadata = result
+        
+        # Add track number if provided
+        if track_number is not None:
+            metadata["track_number"] = track_number
+            logger.info(f"Setting track number: {track_number}")
         
         # Enrich metadata with MusicBrainz (release year, label, better cover art)
         try:
