@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Freedify Deployment Guide</title>
+    <style>
+        :root {
+            --bg-color: #0d1117;
+            --container-bg: #161b22;
+            --text-color: #c9d1d9;
+            --accent-color: #58a6ff;
+            --border-color: #30363d;
+            --code-bg: #22272e;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            line-height: 1.6;
+            margin: 0;
+            padding: 0;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 3rem;
+        }
+
+        .hero-image {
+            width: 100%;
+            max-height: 300px;
+            object-fit: cover;
+            border-radius: 12px;
+            box-shadow: 0 8px 30px rgba(0,0,0,0.5);
+            margin-bottom: 2rem;
+            border: 1px solid var(--border-color);
+        }
+
+        h1, h2, h3 {
+            color: #ffffff;
+            margin-top: 2rem;
+        }
+
+        h1 { font-size: 2.5rem; text-align: center; margin-bottom: 0.5rem; }
+        
+        .card {
+            background: var(--container-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            padding: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .card h2 { margin-top: 0; border-bottom: 1px solid var(--border-color); padding-bottom: 0.5rem; }
+
+        code {
+            background-color: rgba(110,118,129,0.4);
+            padding: 0.2em 0.4em;
+            border-radius: 6px;
+            font-family: ui-monospace, SFMono-Regular, SF Mono, Menlo, Consolas, Liberation Mono, monospace;
+            font-size: 85%;
+        }
+
+        pre {
+            background-color: var(--code-bg);
+            padding: 1rem;
+            border-radius: 6px;
+            overflow-x: auto;
+            border: 1px solid var(--border-color);
+        }
+
+        pre code {
+            background-color: transparent;
+            padding: 0;
+        }
+
+        a { color: var(--accent-color); text-decoration: none; }
+        a:hover { text-decoration: underline; }
+
+        .note {
+            border-left: 4px solid var(--accent-color);
+            background: rgba(88, 166, 255, 0.1);
+            padding: 1rem;
+            border-radius: 0 6px 6px 0;
+            margin: 1rem 0;
+        }
+
+        table {
+            border-collapse: collapse;
+            width: 100%;
+            margin: 1rem 0;
+        }
+        
+        th, td {
+            border: 1px solid var(--border-color);
+            padding: 0.75rem;
+            text-align: left;
+        }
+
+        th { background-color: var(--container-bg); }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <!-- Header Image -->
+        <img src="freedify_deployment_guide_header_1768727342716.png" alt="Freedify Deployment Guide" class="hero-image">
+        
+        <h1>Freedify Deployment Guide</h1>
+        <p style="text-align: center; font-size: 1.2rem; color: #8b949e;">Stream music anywhere. Host it yourself.</p>
+
+        <!-- Option 1: Localhost -->
+        <div class="card">
+            <h2>💻 Option 1: Localhost (Your Computer)</h2>
+            <p><strong>Best for:</strong> Fastest performance, local file access, no cost.</p>
+            
+            <h3>Prerequisites</h3>
+            <ol>
+                <li><strong>Install Python 3.11</strong>: <a href="https://www.python.org/downloads/" target="_blank">Download Here</a> (Check "Add Python to PATH").</li>
+                <li><strong>Install FFmpeg</strong> (Required for transcoding):
+                    <ul>
+                        <li>Windows: <code>winget install ffmpeg</code> via PowerShell.</li>
+                        <li>Mac: <code>brew install ffmpeg</code> via Terminal.</li>
+                    </ul>
+                </li>
+            </ol>
+
+            <h3>Steps</h3>
+            <ol>
+                <li>Download the code (Clone or ZIP) from GitHub.</li>
+                <li>Open terminal in the folder and install dependencies:
+                    <pre><code>pip install -r app/requirements.txt</code></pre>
+                </li>
+                <li>Start the server:
+                    <pre><code>python -m uvicorn app.main:app --host 0.0.0.0 --port 8000</code></pre>
+                </li>
+                <li>Visit <a href="http://localhost:8000" target="_blank">http://localhost:8000</a> 🎵</li>
+            </ol>
+        </div>
+
+        <!-- Option 2: Railway -->
+        <div class="card">
+            <h2>🚂 Option 2: Railway (Recommended Cloud)</h2>
+            <p><strong>Best for:</strong> Mobile access, Hi-Res audio, zero maintenance.</p>
+            <div class="note">
+                <strong>✨ Plug and Play:</strong> We added auto-configuration so you don't need to mess with settings!
+            </div>
+
+            <h3>Steps</h3>
+            <ol>
+                <li><strong>Fork</strong> the Freedify repository to your GitHub.</li>
+                <li>Log in to <a href="https://railway.app" target="_blank">Railway.app</a>.</li>
+                <li>Click <strong>+ New Project</strong> → <strong>Deploy from GitHub repo</strong>.</li>
+                <li>Select your forked repo and click <strong>Deploy Now</strong>.</li>
+                <li>Wait for initialization, then go to <strong>Settings → Networking</strong> to get your public URL.</li>
+            </ol>
+        </div>
+
+        <!-- Secrets Section -->
+        <div class="card">
+            <h2>🔑 How to Find Your API Keys</h2>
+            <p>Unlock AI playlists, Drive sync, and Hi-Res audio by finding these keys.</p>
+
+            <table>
+                <tr>
+                    <th>Variable Name</th>
+                    <th>Purpose</th>
+                    <th>How to find it</th>
+                </tr>
+                <tr>
+                    <td><code>GEMINI_API_KEY</code></td>
+                    <td>AI Features (DJ, Smart Playlists)</td>
+                    <td><a href="https://aistudio.google.com/app/apikey" target="_blank">Google AI Studio</a> → Create API Key.</td>
+                </tr>
+                <tr>
+                    <td><code>LISTENBRAINZ_TOKEN</code></td>
+                    <td>Scrobbling (History)</td>
+                    <td>Create account at <a href="https://listenbrainz.org/" target="_blank">ListenBrainz</a>. <strong>Check your email</strong> for the API Key after signing up.</td>
+                </tr>
+                <tr>
+                    <td><code>DAB_SESSION</code></td>
+                    <td>Hi-Res Audio (24-bit)</td>
+                    <td>Log in to <a href="https://dabmusic.xyz" target="_blank">Dab Music</a>. F12 → Application → Cookies → Copy 'session' value.</td>
+                </tr>
+                <tr>
+                    <td><code>DAB_VISITOR_ID</code></td>
+                    <td>Hi-Res Audio (Required)</td>
+                    <td>Same as above. Copy 'visitor_id' value from cookies.</td>
+                </tr>
+                <tr>
+                    <td><code>GOOGLE_CLIENT_ID</code></td>
+                    <td>Google Drive Sync</td>
+                    <td>Google Cloud Console → Credentials → OAuth 2.0 Client ID.</td>
+                </tr>
+            </table>
+
+            <h3>Where to put them?</h3>
+            <ul>
+                <li><strong>Localhost:</strong> Create a file named <code>.env</code> in the folder and paste them like <code>KEY=VALUE</code>.</li>
+                <li><strong>Railway:</strong> Go to the <strong>Variables</strong> tab in your project dashboard.</li>
+            </ul>
+        </div>
+
+    </div>
+
+</body>
+</html>
