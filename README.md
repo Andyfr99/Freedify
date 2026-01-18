@@ -7,6 +7,16 @@ Stream music and podcasts from anywhere. **Generate smart playlists with AI**, s
 > [!IMPORTANT]
 > **New to Freedify?** check out our **[Visual Deployment Guide](https://biohaphazard.github.io/Freedify/guide.html)** for easy step-by-step setup instructions (Localhost, Railway, & Render).
 
+## 🐳 Quick Start (Docker)
+
+The fastest way to run Freedify. Requires [Docker](https://www.docker.com/get-started/) installed.
+
+```bash
+docker run -d -p 8000:8000 biohaphazard/freedify:latest
+```
+
+Open [http://localhost:8000](http://localhost:8000) and start streaming! 🎵
+
 ## ✨ Features
 
 ### 🎧 HiFi & Hi-Res Streaming
