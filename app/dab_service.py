@@ -39,7 +39,8 @@ class DabService:
             "Origin": "https://dabmusic.xyz"
         }
         self.cookies = {
-            "session": self.session_token
+            "session": self.session_token,
+            "visitor_id": self.visitor_id
         }
         
         self.client = httpx.AsyncClient(
