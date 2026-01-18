@@ -1,15 +1,25 @@
 services:
   freedify:
-    build: .
+    # Option 1: Use pre-built image from Docker Hub (recommended)
+    image: biohaphazard/freedify:latest
+    # Option 2: Build from source (uncomment below, comment out image above)
+    # build: .
     container_name: freedify
     ports:
       - "8000:8000"
     environment:
       - PORT=8000
       - MP3_BITRATE=320k
+      # Optional - Timezone (for NAS users)
+      # - TZ=America/New_York
+      # Optional - User/Group ID for file permissions (Synology/NAS)
+      # - PUID=1000
+      # - PGID=1000
       # Optional - Hi-Res Audio (get from dabmusic.xyz cookies)
       # - DAB_SESSION=your_session_cookie
       # - DAB_VISITOR_ID=your_visitor_id
+      # Optional - AI Features (get from aistudio.google.com)
+      # - GEMINI_API_KEY=your_api_key
       # Optional - Lyrics
       # - GENIUS_ACCESS_TOKEN=your_token
       # Optional - ListenBrainz scrobbling
@@ -20,6 +30,8 @@ services:
     volumes:
       # Persist cache for faster repeated plays
       - freedify-cache:/app/cache
+      # For NAS users with custom paths, use:
+      # - /your/nas/path/freedify-cache:/app/cache
     restart: unless-stopped
     healthcheck:
       test: [ "CMD", "python", "-c", "import httpx; httpx.get('http://localhost:8000/api/health')" ]
